@@ -74,11 +74,12 @@ module.exports = ({ strapi }) => {
           if (context && context.state && context.state.user) {
             if (args[1] && typeof args[1] === 'object') {
               args[1].user = context.state.user;
-              
+
               // Also add authorization headers for token extraction
               if (context.request && context.request.header) {
                 if (!args[1].headers) args[1].headers = {};
-                args[1].headers.authorization = context.request.header.authorization;
+                args[1].headers.authorization =
+                  context.request.header.authorization;
               }
             }
           } else {
@@ -187,10 +188,10 @@ function attachPaperTrailHooks(strapi, uid) {
   }
 
   // Helper function to get user from all possible sources
-  const getUserFromEvent = async (event) => {
+  const getUserFromEvent = async event => {
     // Try all possible sources for user information
     let user = event.params?.meta?.user || event.params?.user || null;
-    
+
     // If no user found yet, try from AsyncLocalStorage
     if (!user) {
       try {
@@ -201,43 +202,47 @@ function attachPaperTrailHooks(strapi, uid) {
         // Failed to get user from AsyncLocalStorage
       }
     }
-    
+
     // If still no user, try to extract from auth header
     if (!user && event.params?.headers?.authorization) {
       try {
         const token = event.params.headers.authorization.replace('Bearer ', '');
         const tokenParts = token.split('.');
         if (tokenParts.length === 3) {
-          const decoded = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
+          const decoded = JSON.parse(
+            Buffer.from(tokenParts[1], 'base64').toString()
+          );
           // User decoded from token
-          
+
           if (decoded?.id) {
             // Fetch user based on ID
-            user = await strapi.db.query('plugin::users-permissions.user').findOne({
-              where: { id: decoded.id }
-            });
+            user = await strapi.db
+              .query('plugin::users-permissions.user')
+              .findOne({
+                where: { id: decoded.id }
+              });
           }
         }
       } catch (error) {
         // Error extracting user from token
       }
     }
-    
+
     // Determine if the user is an admin
     if (user) {
       // Check if this is an admin user
-      user.isAdminUser = 
+      user.isAdminUser =
         // Admin users typically have firstname and lastname instead of username
-        (user.firstname !== undefined && user.lastname !== undefined) || 
+        (user.firstname !== undefined && user.lastname !== undefined) ||
         // Check if there's an explicit isAdminUser flag
         user.isAdminUser === true ||
         // Check for admin role
-        user.roles?.some(role => role.code === 'strapi-super-admin') || 
+        user.roles?.some(role => role.code === 'strapi-super-admin') ||
         false;
-      
+
       // User status determined
     }
-    
+
     return user;
   };
 
@@ -251,20 +256,20 @@ function attachPaperTrailHooks(strapi, uid) {
         // Get user from all possible sources (isAdminUser flag is set in getUserFromEvent)
         const user = await getUserFromEvent(event);
         const isAdmin = user?.isAdminUser || false;
-        
+
         // Detect users-permissions user (not admin)
         let upUserId = null;
         if (user && !isAdmin) {
           upUserId = user.id;
         }
-        
+
         // User for afterCreate determined
-        
+
         // Update event.params with user and header info if available
         if (user && !event.params.user) {
           event.params.user = user;
         }
-        
+
         // Add headers to event.params if not already there
         if (!event.params.headers && global.paperTrailUserStorage) {
           const ctx = global.paperTrailUserStorage.getStore()?.ctx;
@@ -274,7 +279,7 @@ function attachPaperTrailHooks(strapi, uid) {
             };
           }
         }
-        
+
         await strapi
           .plugin('paper-trail')
           .service('paperTrailService')
@@ -290,26 +295,26 @@ function attachPaperTrailHooks(strapi, uid) {
       }
     },
     async afterUpdate(event) {
-      if (!global.paperTrailContentTypes.has(uid)) return; 
+      if (!global.paperTrailContentTypes.has(uid)) return;
       // Paper Trail afterUpdate event
       try {
         // Get user from all possible sources (isAdminUser flag is set in getUserFromEvent)
         const user = await getUserFromEvent(event);
         const isAdmin = user?.isAdminUser || false;
-        
+
         // Detect users-permissions user (not admin)
         let upUserId = null;
         if (user && !isAdmin) {
           upUserId = user.id;
         }
-        
+
         // User for afterUpdate determined
-        
+
         // Update event.params with user and header info if available
         if (user && !event.params.user) {
           event.params.user = user;
         }
-        
+
         // Add headers to event.params if not already there
         if (!event.params.headers && global.paperTrailUserStorage) {
           const ctx = global.paperTrailUserStorage.getStore()?.ctx;
@@ -319,7 +324,7 @@ function attachPaperTrailHooks(strapi, uid) {
             };
           }
         }
-        
+
         await strapi
           .plugin('paper-trail')
           .service('paperTrailService')
@@ -341,20 +346,20 @@ function attachPaperTrailHooks(strapi, uid) {
         // Get user from all possible sources (isAdminUser flag is set in getUserFromEvent)
         const user = await getUserFromEvent(event);
         const isAdmin = user?.isAdminUser || false;
-        
+
         // Detect users-permissions user (not admin)
         let upUserId = null;
         if (user && !isAdmin) {
           upUserId = user.id;
         }
-        
+
         // User for afterDelete determined
-        
+
         // Update event.params with user and header info if available
         if (user && !event.params.user) {
           event.params.user = user;
         }
-        
+
         // Add headers to event.params if not already there
         if (!event.params.headers && global.paperTrailUserStorage) {
           const ctx = global.paperTrailUserStorage.getStore()?.ctx;
@@ -364,7 +369,7 @@ function attachPaperTrailHooks(strapi, uid) {
             };
           }
         }
-        
+
         await strapi
           .plugin('paper-trail')
           .service('paperTrailService')
