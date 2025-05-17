@@ -5,14 +5,11 @@ import {
   Loader,
   Typography
 } from '@strapi/design-system';
-import {
-  useCMEditViewDataManager,
-  useFetchClient
-} from '@strapi/helper-plugin';
 import { format, parseISO } from 'date-fns';
 import React, { Fragment, useCallback, useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useParams } from 'react-router-dom';
+import { useContentManagerContext, useFetchClient } from '../../utils/hooks';
 
 import getTrad from '../../utils/getTrad';
 import getUser from '../../utils/getUser';
@@ -22,15 +19,15 @@ function PaperTrail() {
   /**
    * Get the current schema
    */
-  const { layout } = useCMEditViewDataManager();
+  const { model } = useContentManagerContext();
 
-  const { uid, pluginOptions = {} } = layout;
+  const { uid, pluginOptions = {} } = model?.attributes ? model : { uid: '', pluginOptions: {} };
 
   const { formatMessage } = useIntl();
   // params works for collection types but not single types
   const { id, collectionType } = useParams();
 
-  const [recordId, setRecordId] = useState(id);
+  const [entityId, setEntityId] = useState(id ? String(id) : undefined);
 
   const paperTrailEnabled = pluginOptions?.paperTrail?.enabled;
 
@@ -38,7 +35,7 @@ function PaperTrail() {
   // https://forum.strapi.io/t/custom-field-settings/23068
   const pageSize = 15;
 
-  const request = useFetchClient();
+  const { get } = useFetchClient();
 
   const [trails, setTrails] = useState([]);
   const [loaded, setLoaded] = useState(false);
@@ -56,13 +53,13 @@ function PaperTrail() {
     const requestUri = `/content-manager/single-types/${uid}/`;
 
     try {
-      const result = await request.get(requestUri);
+      const result = await get(requestUri);
 
       const { data = {} } = result;
 
       const { id } = data;
 
-      setRecordId(id);
+      setEntityId(id ? String(id) : undefined);
 
       return id;
     } catch (err) {
@@ -70,7 +67,7 @@ function PaperTrail() {
     }
 
     return null;
-  }, [uid, request]);
+  }, [uid, get]);
 
   useEffect(() => {
     if (collectionType === 'single-types') {
@@ -85,13 +82,13 @@ function PaperTrail() {
         pageSize,
         sort: 'version:DESC',
         'filters[$and][0][contentType][$eq]': uid,
-        'filters[$and][1][recordId][$eq]': recordId
+        'filters[$and][1][entityId][$eq]': entityId
       }).toString();
 
       const requestUri = `/content-manager/collection-types/plugin::paper-trail.trail?${params}`;
 
       try {
-        const result = await request.get(requestUri);
+        const result = await get(requestUri);
 
         const { data = {} } = result;
 
@@ -115,12 +112,12 @@ function PaperTrail() {
       }
     }
 
-    if (!loaded && paperTrailEnabled && recordId) {
+    if (!loaded && paperTrailEnabled && entityId) {
       getTrails(page, pageSize);
     } else {
       setInitialLoad(true);
     }
-  }, [loaded, uid, recordId, page, paperTrailEnabled, request]);
+  }, [loaded, uid, entityId, page, paperTrailEnabled, get]);
 
   /**
    * event listener for submit button
@@ -135,7 +132,7 @@ function PaperTrail() {
       setLoaded(false);
       setInitialLoad(false);
     }, 1000);
-  }, [getSingleTypeId, collectionType]);
+  }, [collectionType, getSingleTypeId]);
 
   const handleSetPage = useCallback(newPage => {
     setPage(newPage);
@@ -143,20 +140,52 @@ function PaperTrail() {
   }, []);
 
   /**
-   * TODO: this event listener is not working properly 100% of the time needs a better solution
+   * Use MutationObserver instead of direct DOM manipulation
+   * This is a more React-friendly approach for Strapi V5
    */
 
   useEffect(() => {
-    const buttons = document.querySelectorAll('main button[type=submit]');
-    if (buttons[0]) {
-      const button = buttons[0];
+    // Create a MutationObserver to watch for changes in the DOM
+    const observer = new MutationObserver(mutations => {
+      mutations.forEach(mutation => {
+        if (mutation.addedNodes.length) {
+          Array.from(mutation.addedNodes).forEach(node => {
+            // Check if the added node is the submit button or contains it
+            if (node.tagName === 'BUTTON' && node.type === 'submit') {
+              node.addEventListener('click', handler);
+            } else if (node.querySelector) {
+              const button = node.querySelector('button[type=submit]');
+              if (button) {
+                button.addEventListener('click', handler);
+              }
+            }
+          });
+        }
+      });
+    });
 
-      button.addEventListener('click', handler);
-
-      return () => {
-        button.removeEventListener('click', handler);
-      };
+    // Start observing the main content area
+    const mainContent = document.querySelector('main');
+    if (mainContent) {
+      observer.observe(mainContent, { childList: true, subtree: true });
+      
+      // Also check if the button already exists
+      const existingButton = mainContent.querySelector('button[type=submit]');
+      if (existingButton) {
+        existingButton.addEventListener('click', handler);
+      }
     }
+
+    return () => {
+      // Disconnect the observer when the component unmounts
+      observer.disconnect();
+      
+      // Clean up any event listeners
+      const button = document.querySelector('main button[type=submit]');
+      if (button) {
+        button.removeEventListener('click', handler);
+      }
+    };
   }, [handler]);
 
   if (!paperTrailEnabled) {

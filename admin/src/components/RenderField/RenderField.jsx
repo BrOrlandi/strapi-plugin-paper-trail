@@ -1,18 +1,15 @@
 import {
   Accordion,
-  AccordionContent,
-  AccordionToggle,
-  BaseCheckbox,
   Box,
+  Checkbox,
   DateTimePicker,
   JSONInput,
   NumberInput,
   TextInput,
   Textarea,
-  ToggleCheckbox,
   Typography
 } from '@strapi/design-system';
-import { useCMEditViewDataManager } from '@strapi/helper-plugin';
+import { unstable_useContentManagerContext as useContentManagerContext } from '@strapi/strapi/admin';
 import PropTypes from 'prop-types';
 import React, { Fragment, useState } from 'react';
 import { useIntl } from 'react-intl';
@@ -27,9 +24,9 @@ function RenderField(props) {
 
   const { formatMessage } = useIntl();
 
-  const { layout } = useCMEditViewDataManager();
+  const { model } = useContentManagerContext();
 
-  const { attributes } = layout;
+  const { attributes } = model;
 
   /**
    * get the schema attributes and handle unknown types as strings
@@ -104,18 +101,22 @@ function RenderField(props) {
             </Textarea>
           )}
           {validType === 'boolean' && (
-            <ToggleCheckbox
-              onLabel={formatMessage({
-                id: getTrad('plugin.admin.paperTrail.true'),
-                defaultMessage: 'True'
-              })}
-              offLabel={formatMessage({
-                id: getTrad('plugin.admin.paperTrail.false'),
-                defaultMessage: 'False'
-              })}
-              checked={value}
+            <Checkbox
+              onValueChange={() => {}}
+              value={Boolean(value)}
               disabled={true}
-            />
+            >
+              {value ? 
+                formatMessage({
+                  id: getTrad('plugin.admin.paperTrail.true'),
+                  defaultMessage: 'True'
+                }) :
+                formatMessage({
+                  id: getTrad('plugin.admin.paperTrail.false'),
+                  defaultMessage: 'False'
+                })
+              }
+            </Checkbox>
           )}
           {/* TODO: investigated a better way of managing this, and flag it in the readme as a risk */}
           {['json', 'dynamiczone', 'component'].includes(validType) && (
@@ -135,12 +136,12 @@ function RenderField(props) {
   return (
     <Box padding={4} background="neutral100">
       {!hideAccordion && (
-        <Accordion
+        <Accordion.Root 
           expanded={expanded}
           onToggle={() => setExpanded(s => !s)}
           id={`acc-field-pt-${name}`}
         >
-          <AccordionToggle
+          <Accordion.Trigger
             togglePosition="right"
             title={name}
             description={
@@ -152,7 +153,7 @@ function RenderField(props) {
                   })})`
             }
             action={
-              <BaseCheckbox
+              <Checkbox
                 aria-label={formatMessage({
                   id: getTrad('plugin.admin.paperTrail.selectRevision'),
                   defaultMessage: 'Select revision'
@@ -166,8 +167,8 @@ function RenderField(props) {
               />
             }
           />
-          <AccordionContent>{renderFields()}</AccordionContent>
-        </Accordion>
+          <Accordion.Content>{renderFields()}</Accordion.Content>
+        </Accordion.Root>
       )}
       {hideAccordion && renderFields()}
     </Box>

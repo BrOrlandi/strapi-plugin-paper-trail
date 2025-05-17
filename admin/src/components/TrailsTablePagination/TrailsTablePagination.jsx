@@ -1,9 +1,4 @@
-import {
-  NextLink,
-  PageLink,
-  Pagination,
-  PreviousLink
-} from '@strapi/design-system/v2';
+import { Pagination } from '@strapi/design-system';
 import PropTypes from 'prop-types';
 import React, { useCallback } from 'react';
 
@@ -25,30 +20,30 @@ function TrailsTablePagination(props) {
   );
 
   return (
-    <Pagination activePage={page} pageCount={pageCount}>
-      <PreviousLink
+    <Pagination.Root activePage={page} pageCount={pageCount}>
+      <Pagination.Previous
         href={`#${page - 1}`}
         onClick={event => handleClick(event, page - 1)}
       >
         Go to previous page
-      </PreviousLink>
+      </Pagination.Previous>
       {pageList.map(pageNum => (
-        <PageLink
+        <Pagination.PageLink
           key={pageNum}
           number={pageNum}
           href={`#${pageNum}`}
           onClick={event => handleClick(event, pageNum)}
         >
           Go to page ${pageNum}
-        </PageLink>
+        </Pagination.PageLink>
       ))}
-      <NextLink
+      <Pagination.Next
         href={`#${page + 1}`}
         onClick={event => handleClick(event, page + 1)}
       >
         Go to next page
-      </NextLink>
-    </Pagination>
+      </Pagination.Next>
+    </Pagination.Root>
   );
 }
 

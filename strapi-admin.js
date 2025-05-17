@@ -1,3 +1,5 @@
 'use strict';
 
-module.exports = require('./admin/src').default;
+// Export the default export from the index.jsx file
+import App from './admin/src/index.jsx';
+export default App;
