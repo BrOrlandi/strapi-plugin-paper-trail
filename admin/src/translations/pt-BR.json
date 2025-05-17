@@ -1,6 +1,7 @@
 {
   "plugin.schema.paperTrail.label-content-type": "Paper Trail",
   "plugin.schema.paperTrail.description-content-type": "Ativar auditoria de Paper Trail e versionamento de conteúdo para este tipo de conteúdo",
+  "plugin.schema.paperTrail.read-only-description": "Somente leitura: Paper Trail só pode ser configurado no arquivo schema.json",
   "plugin.admin.paperTrail.title": "Paper Trail",
   "plugin.admin.paperTrail.noTrails": "Nenhuma versão (ainda)",
   "plugin.admin.paperTrail.currentVersion": "Versão atual:",

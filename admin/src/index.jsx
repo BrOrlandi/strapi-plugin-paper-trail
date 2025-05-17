@@ -1,6 +1,4 @@
 import pluginPkg from '../../package.json';
-import React from 'react';
-import { Box, Typography } from '@strapi/design-system';
 import Initializer from './components/Initializer';
 import PaperTrail from './components/PaperTrail/PaperTrail.jsx';
 import injectionZones from './injectionZones';
@@ -40,47 +38,16 @@ export default {
     //   permissions: [], // Add appropriate permissions if needed
     // });
 
-    // Extend the Content-Type Builder form for Strapi V5 - but make it display-only
+    // Extend the Content-Type Builder form for Strapi V5 - simpler approach
     try {
-      console.log('Setting up Paper Trail form extension as display-only');
+      console.log('[Paper Trail] Setting up form extension in the CTB');
       
       const ctb = app.getPlugin('content-type-builder');
       
       if (ctb && ctb.apis && ctb.apis.forms) {
         const formsAPI = ctb.apis.forms;
         
-        // Custom component to display Paper Trail status (read-only)
-        const PaperTrailStatusComponent = ({ value }) => {
-          return (
-            <Box padding={4}>
-              <Typography variant="pi" fontWeight="bold">
-                Paper Trail: {value ? 'Enabled' : 'Disabled'}
-              </Typography>
-              <Box paddingTop={2}>
-                <Typography variant="pi" textColor="neutral600">
-                  Paper Trail is {value ? 'enabled' : 'disabled'} for this content type. 
-                  This can only be configured in the schema.json file.
-                </Typography>
-              </Box>
-            </Box>
-          );
-        };
-        
-        // Register the custom component
-        app.customFields.register({
-          name: 'paperTrailStatus',
-          pluginId: 'paper-trail',
-          type: 'string',
-          intlLabel: {
-            id: getTrad('plugin.schema.paperTrail.status'),
-            defaultMessage: 'Paper Trail Status',
-          },
-          components: {
-            Input: PaperTrailStatusComponent,
-          },
-        });
-        
-        // Use the correct pattern for Strapi V5
+        // Use a simpler approach: just extend the content type with a disabled field
         formsAPI.extendContentType({
           validator: () => ({
             pluginOptions: {
@@ -94,26 +61,28 @@ export default {
               return [
                 {
                   name: 'pluginOptions.paperTrail.enabled',
-                  description: {
-                    id: getTrad('plugin.schema.paperTrail.description-content-type'),
-                    defaultMessage: 'Paper Trail must be configured in the schema.json file',
-                  },
-                  type: 'paperTrailStatus', // Use our custom component
+                  type: 'checkbox', // Show a checkbox disabled
                   intlLabel: {
                     id: getTrad('plugin.schema.paperTrail.label-content-type'),
-                    defaultMessage: 'Paper Trail Status',
+                    defaultMessage: 'Paper Trail',
                   },
+                  description: {
+                    id: getTrad('plugin.schema.paperTrail.read-only-description'),
+                    defaultMessage: 'Read-only: Paper Trail can only be configured in the schema.json file',
+                  },
+                  disabled: true, // Make it read-only
                 },
               ];
             },
           },
         });
-        console.log('Paper Trail: Display-only form extension registered successfully');
+        
+        console.log('[Paper Trail] Form extension registered successfully');
       } else {
-        console.error('Paper Trail: Content-Type Builder forms API not found.');
+        console.error('[Paper Trail] Content-Type Builder forms API not found.');
       }
     } catch (error) {
-      console.error('Paper Trail form extension failed:', error);
+      console.error('[Paper Trail] Form extension failed:', error);
     }
 
     // Remove the problematic app.registerHook, as it's causing an Invariant Violation
@@ -155,10 +124,38 @@ export default {
   },
 
   bootstrap(app) {
-    console.log('Paper Trail plugin bootstrapping...');
+    console.log('[Paper Trail] Plugin bootstrapping...');
     
-    // Component injection is now handled by the injectionZones.js file
-    console.log('Using injectionZones.js for component injection');
+    // Register components in the correct injection zones for Strapi V5
+    try {
+      const contentManager = app.getPlugin('content-manager');
+      
+      if (contentManager && injectionZones.admin) {
+        Object.entries(injectionZones.admin).forEach(([zone, components]) => {
+          // Extract parts from zone name (format: 'content-manager.editView.informations')
+          const parts = zone.split('.');
+          if (parts.length >= 3) {
+            const viewPart = parts[1]; // e.g. 'editView'
+            const zonePart = parts[2]; // e.g. 'informations'
+            
+            if (Array.isArray(components)) {
+              components.forEach((componentFn) => {
+                // Get the component to inject
+                const component = componentFn();
+                contentManager.injectComponent(viewPart, zonePart, component);
+                console.log(`[Paper Trail] Injected component '${component.name}' into ${viewPart}.${zonePart}`);
+              });
+            }
+          }
+        });
+        
+        console.log('[Paper Trail] Injection zones registered successfully');
+      } else {
+        console.warn('[Paper Trail] Content Manager plugin not found, skipping component injection');
+      }
+    } catch (error) {
+      console.error('[Paper Trail] Failed to inject components:', error);
+    }
 
     // The formsAPI.extendContentType and the app.registerHook 
     // for 'Admin/CM/pages/EditSettingsView/mutate' should not be in bootstrap.
