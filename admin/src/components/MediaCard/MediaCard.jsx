@@ -47,7 +47,7 @@ function MediaCard(props) {
           );
         }
       } catch (Err) {
-        console.warn('paper-trail: ', Err);
+        // Paper trail error
         setError(Err);
       }
     }

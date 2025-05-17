@@ -5,7 +5,6 @@ module.exports = ({ strapi }) => {
   // Initialize a registry to track which content types have Paper Trail enabled
   global.paperTrailContentTypes = global.paperTrailContentTypes || new Set();
   global.paperTrailAttachedHooks = global.paperTrailAttachedHooks || new Set(); // Keep track of attached hooks
-  console.log('[DEBUG] Bootstrap initialized paperTrailContentTypes:', global.paperTrailContentTypes);
 
   // Load the initial configuration after the server is ready
   if (strapi.server && strapi.server.httpServer) {
@@ -33,7 +32,7 @@ module.exports = ({ strapi }) => {
           processContentTypeChange(strapi, contentType);
         }
       } catch (error) {
-        console.error('Paper Trail afterCreate handler error:', error);
+        // Paper Trail afterCreate handler error
       }
     },
 
@@ -45,7 +44,7 @@ module.exports = ({ strapi }) => {
           processContentTypeChange(strapi, contentType);
         }
       } catch (error) {
-        console.error('Paper Trail afterUpdate handler error:', error);
+        // Paper Trail afterUpdate handler error
       }
     }
   });
@@ -60,12 +59,8 @@ module.exports = ({ strapi }) => {
     strapi.eventHub.on('content-type.update', ({ contentType }) => {
       processContentTypeChange(strapi, contentType);
     });
-
-    console.log('Paper Trail event listeners registered');
   } else {
-    console.warn(
-      'Paper Trail: EventHub not available, some features may not work'
-    );
+    // EventHub not available, some features may not work
   }
 
   // Patch entityService globally to always inject ctx.state.user into params
@@ -109,7 +104,7 @@ module.exports = ({ strapi }) => {
         return global.paperTrailUserStorage?.getStore()?.ctx || null;
       }
     } catch (e) {
-      console.error('[Paper Trail] Error getting Koa context:', e.message);
+      // Error getting Koa context
     }
     return null;
   }
@@ -120,29 +115,21 @@ module.exports = ({ strapi }) => {
  */
 function loadPaperTrailConfiguration(strapi) {
   try {
-    console.log('[DEBUG] loadPaperTrailConfiguration starting');
     // Get all content types
     const contentTypes = strapi.contentTypes;
-    console.log('[DEBUG] Content types found:', Object.keys(contentTypes).length);
 
     // Check each content type for Paper Trail configuration
     Object.entries(contentTypes).forEach(([uid, contentType]) => {
-      console.log(`[DEBUG] Checking content type ${uid} for Paper Trail config:`, 
-        contentType.pluginOptions?.paperTrail);
-        
       if (contentType.pluginOptions?.paperTrail?.enabled) {
         // Add to our registry
         global.paperTrailContentTypes.add(uid);
-        console.log(`Paper Trail enabled for content type: ${uid}`);
         attachPaperTrailHooks(strapi, uid); // Attach hooks
       }
     });
 
-    console.log(
-      `Paper Trail configured for ${global.paperTrailContentTypes.size} content type(s)`
-    );
+    // Paper Trail configured for content types
   } catch (error) {
-    console.error('Error loading Paper Trail configuration:', error);
+    // Error loading Paper Trail configuration
   }
 }
 
@@ -152,22 +139,15 @@ function loadPaperTrailConfiguration(strapi) {
 function processContentTypeChange(strapi, contentType) {
   try {
     if (!contentType) {
-      console.warn(
-        'Paper Trail received undefined contentType in processContentTypeChange'
-      );
+      // Received undefined contentType in processContentTypeChange
       return;
     }
 
     const { uid } = contentType;
     if (!uid) {
-      console.warn('Paper Trail received contentType without uid');
+      // Received contentType without uid
       return;
     }
-
-    console.log(
-      `Processing content type change for ${uid}`,
-      contentType.pluginOptions
-    );
 
     // Check if Paper Trail is enabled for this content type
     const isEnabled = contentType.pluginOptions?.paperTrail?.enabled === true;
@@ -175,7 +155,6 @@ function processContentTypeChange(strapi, contentType) {
     if (isEnabled) {
       // Add to our registry
       global.paperTrailContentTypes.add(uid);
-      console.log(`Paper Trail enabled for content type: ${uid}`);
 
       // Ensure the schema is properly saved with the Paper Trail option
       ensureSchemaUpdate(strapi, uid, contentType);
@@ -187,7 +166,6 @@ function processContentTypeChange(strapi, contentType) {
       // Handle disabled or missing setting
       if (global.paperTrailContentTypes.has(uid)) {
         global.paperTrailContentTypes.delete(uid);
-        console.log(`Paper Trail disabled for content type: ${uid}`);
         // TODO: Detach hooks if possible/necessary, though Strapi might handle this if models are reloaded.
         // For now, we just stop reacting. The global.paperTrailAttachedHooks check will prevent re-attachment.
         global.paperTrailAttachedHooks.delete(uid);
@@ -195,10 +173,7 @@ function processContentTypeChange(strapi, contentType) {
       }
     }
   } catch (error) {
-    console.error(
-      'Error processing content type change for Paper Trail:',
-      error
-    );
+    // Error processing content type change for Paper Trail
   }
 }
 
@@ -207,7 +182,7 @@ function processContentTypeChange(strapi, contentType) {
  */
 function attachPaperTrailHooks(strapi, uid) {
   if (global.paperTrailAttachedHooks.has(uid)) {
-    // console.log(`Paper Trail hooks already attached for ${uid}. Skipping.`);
+    // Hooks already attached, skipping
     return;
   }
 
@@ -221,9 +196,9 @@ function attachPaperTrailHooks(strapi, uid) {
       try {
         const { getCurrentUser } = require('./middlewares/user-capture');
         user = getCurrentUser();
-        console.log(`[Paper Trail] Got user from AsyncLocalStorage for ${uid}:`, user?.id);
+        // User retrieved from AsyncLocalStorage
       } catch (error) {
-        console.log(`[Paper Trail] Error getting user from AsyncLocalStorage for ${uid}:`, error.message);
+        // Failed to get user from AsyncLocalStorage
       }
     }
     
@@ -234,7 +209,7 @@ function attachPaperTrailHooks(strapi, uid) {
         const tokenParts = token.split('.');
         if (tokenParts.length === 3) {
           const decoded = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-          console.log(`[Paper Trail] Decoded user from token for ${uid}:`, decoded?.id);
+          // User decoded from token
           
           if (decoded?.id) {
             // Fetch user based on ID
@@ -244,7 +219,7 @@ function attachPaperTrailHooks(strapi, uid) {
           }
         }
       } catch (error) {
-        console.log(`[Paper Trail] Error extracting user from token for ${uid}:`, error.message);
+        // Error extracting user from token
       }
     }
     
@@ -260,18 +235,18 @@ function attachPaperTrailHooks(strapi, uid) {
         user.roles?.some(role => role.code === 'strapi-super-admin') || 
         false;
       
-      console.log(`[Paper Trail] User status for ${uid}: ${user.isAdminUser ? 'Admin' : 'Regular'} user ID ${user.id}`);
+      // User status determined
     }
     
     return user;
   };
 
-  console.log(`Paper Trail: Attaching lifecycle hooks for ${uid}`);
+  // Attaching lifecycle hooks
   strapi.db.lifecycles.subscribe({
     models: [uid],
     async afterCreate(event) {
       if (!global.paperTrailContentTypes.has(uid)) return; // Double check if still enabled
-      console.log(`Paper Trail afterCreate for ${uid}:`, event.result);
+      // Paper Trail afterCreate event
       try {
         // Get user from all possible sources (isAdminUser flag is set in getUserFromEvent)
         const user = await getUserFromEvent(event);
@@ -283,7 +258,7 @@ function attachPaperTrailHooks(strapi, uid) {
           upUserId = user.id;
         }
         
-        console.log(`[Paper Trail] ${uid} afterCreate user:`, user ? `${user.id} (${user.username || user.email})` : 'No user found');
+        // User for afterCreate determined
         
         // Update event.params with user and header info if available
         if (user && !event.params.user) {
@@ -311,12 +286,12 @@ function attachPaperTrailHooks(strapi, uid) {
             isAdmin
           );
       } catch (e) {
-        console.error(`Paper Trail error in afterCreate for ${uid}:`, e);
+        // Paper Trail error in afterCreate
       }
     },
     async afterUpdate(event) {
       if (!global.paperTrailContentTypes.has(uid)) return; 
-      console.log(`Paper Trail afterUpdate for ${uid}:`, event.result);
+      // Paper Trail afterUpdate event
       try {
         // Get user from all possible sources (isAdminUser flag is set in getUserFromEvent)
         const user = await getUserFromEvent(event);
@@ -328,7 +303,7 @@ function attachPaperTrailHooks(strapi, uid) {
           upUserId = user.id;
         }
         
-        console.log(`[Paper Trail] ${uid} afterUpdate user:`, user ? `${user.id} (${user.username || user.email})` : 'No user found');
+        // User for afterUpdate determined
         
         // Update event.params with user and header info if available
         if (user && !event.params.user) {
@@ -356,12 +331,12 @@ function attachPaperTrailHooks(strapi, uid) {
             isAdmin
           );
       } catch (e) {
-        console.error(`Paper Trail error in afterUpdate for ${uid}:`, e);
+        // Paper Trail error in afterUpdate
       }
     },
     async afterDelete(event) {
       if (!global.paperTrailContentTypes.has(uid)) return;
-      console.log(`Paper Trail afterDelete for ${uid}:`, event.result);
+      // Paper Trail afterDelete event
       try {
         // Get user from all possible sources (isAdminUser flag is set in getUserFromEvent)
         const user = await getUserFromEvent(event);
@@ -373,7 +348,7 @@ function attachPaperTrailHooks(strapi, uid) {
           upUserId = user.id;
         }
         
-        console.log(`[Paper Trail] ${uid} afterDelete user:`, user ? `${user.id} (${user.username || user.email})` : 'No user found');
+        // User for afterDelete determined
         
         // Update event.params with user and header info if available
         if (user && !event.params.user) {
@@ -401,12 +376,12 @@ function attachPaperTrailHooks(strapi, uid) {
             isAdmin
           );
       } catch (e) {
-        console.error(`Paper Trail error in afterDelete for ${uid}:`, e);
+        // Paper Trail error in afterDelete
       }
     }
   });
   global.paperTrailAttachedHooks.add(uid);
-  console.log(`Paper Trail: Lifecycle hooks successfully attached for ${uid}`);
+  // Lifecycle hooks successfully attached
 }
 
 /**
@@ -414,8 +389,7 @@ function attachPaperTrailHooks(strapi, uid) {
  */
 function ensureSchemaUpdate(strapi, uid, contentType) {
   try {
-    // Log the update to help with troubleshooting
-    console.log(`Ensuring Paper Trail schema update for: ${uid}`);
+    // Ensuring Paper Trail schema update
 
     // For Strapi V5, make sure the plugin options are properly set
     const schema = strapi.getModel(uid);
@@ -427,10 +401,10 @@ function ensureSchemaUpdate(strapi, uid, contentType) {
       // Set enabled to true
       schema.pluginOptions.paperTrail.enabled = true;
 
-      console.log(`Paper Trail schema updated for: ${uid}`);
+      // Paper Trail schema updated
     }
   } catch (error) {
-    console.error(`Error ensuring schema update for ${uid}:`, error);
+    // Error ensuring schema update
   }
 }
 
@@ -445,22 +419,18 @@ async function updateContentTypeConfiguration(strapi, uid, enabled) {
       .service('content-types');
 
     if (!configService) {
-      console.warn(
-        `Content-type-builder service not available for updating ${uid}`
-      );
+      // Content-type-builder service not available for updating
       return;
     }
 
     // Get current configuration
-    console.log(
-      `Updating database configuration for content type: ${uid}, Paper Trail enabled: ${enabled}`
-    );
+    // Updating database configuration
 
     // Use strapi's entity service to find the configuration
     const entityService = strapi.entityService || strapi.query;
 
     if (!entityService) {
-      console.warn('Entity service not available for updating configuration');
+      // Entity service not available for updating configuration
       return;
     }
 
@@ -493,22 +463,14 @@ async function updateContentTypeConfiguration(strapi, uid, enabled) {
           data: { settings }
         });
 
-        console.log(
-          `Successfully updated content type configuration for ${uid} in database`
-        );
+        // Successfully updated content type configuration
       } else {
-        console.warn(`No configuration found for ${uid}, cannot update`);
+        // No configuration found, cannot update
       }
     } catch (dbError) {
-      console.error(
-        `Error updating configuration in database for ${uid}:`,
-        dbError
-      );
+      // Error updating configuration in database
     }
   } catch (error) {
-    console.error(
-      `Error updating content type configuration for ${uid}:`,
-      error
-    );
+    // Error updating content type configuration
   }
 }

@@ -50,15 +50,15 @@
                 });
                 
                 if (response.ok) {
-                  console.log('Paper Trail setting saved successfully');
+                  // Paper Trail setting saved successfully
                 } else {
-                  console.error('Failed to save Paper Trail setting');
+                  // Failed to save Paper Trail setting
                 }
               } catch (error) {
-                console.error('Error saving Paper Trail setting:', error);
+                // Error saving Paper Trail setting
               }
             } else {
-              console.error('Could not determine content type UID');
+              // Could not determine content type UID
             }
           }
         });

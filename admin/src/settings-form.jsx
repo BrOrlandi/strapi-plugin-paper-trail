@@ -35,11 +35,11 @@ const PaperTrailSetting = ({
       const uid = matches && matches[1] ? matches[1] : '';
       
       if (!uid) {
-        console.error('Could not extract content type UID from URL');
+        // Could not extract content type UID from URL
         return;
       }
       
-      console.log(`Saving Paper Trail setting for ${uid}: ${checkboxValue}`);
+      // Saving Paper Trail setting
       
       const response = await fetch(`/paper-trail/settings`, {
         method: 'POST',
@@ -53,14 +53,13 @@ const PaperTrailSetting = ({
       });
       
       if (response.ok) {
-        console.log('Paper Trail settings saved successfully!');
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       } else {
-        console.error('Failed to save Paper Trail settings:', await response.text());
+        // Failed to save Paper Trail settings
       }
     } catch (error) {
-      console.error('Error saving Paper Trail settings:', error);
+      // Error saving Paper Trail settings
     } finally {
       setSaving(false);
     }

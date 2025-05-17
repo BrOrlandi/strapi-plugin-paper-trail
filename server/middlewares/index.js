@@ -7,11 +7,10 @@ const userCaptureMiddleware = require('./user-capture');
 
 module.exports = {
   paperTrail: ({ strapi }) => {
-    console.log('[Paper Trail] paperTrail middleware factory called');
+    // Return paperTrail middleware
     return paperTrailMiddleware;
   },
   userCapture: ({ strapi }) => {
-    console.log('[Paper Trail] userCapture middleware factory called');
     // Pass strapi to the middleware factory
     return userCaptureMiddleware({ strapi });
   }

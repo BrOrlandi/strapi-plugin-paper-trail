@@ -38,7 +38,7 @@ export const useFetchClient = () => {
       
       return await response.text();
     } catch (error) {
-      console.error('Fetch error:', error);
+      // Fetch error
       throw error;
     }
   };

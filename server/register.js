@@ -2,7 +2,7 @@ const middlewares = require('./middlewares');
 const userPermissionSchema = require('./content-types/trail/user-permissions');
 
 module.exports = async ({ strapi }) => {
-  console.log('Paper Trail plugin registering...');
+  // Paper Trail plugin registration
   
   // during boot, check if the user-permissions plugin exists
   const userPermissionsContentType = strapi.contentType(
@@ -36,7 +36,7 @@ module.exports = async ({ strapi }) => {
             
             // Check if we're updating plugin settings
             if (data && data.settings && data.settings.pluginOptions) {
-              console.log('Paper Trail: Content type configuration being updated:', params.where.id);
+              // Content type configuration being updated
               
               // Make sure the update is properly applied
               await strapi.db.query('admin::content-type-configuration').update({
@@ -58,7 +58,7 @@ module.exports = async ({ strapi }) => {
                 if (contentType && config.settings && config.settings.pluginOptions && config.settings.pluginOptions.paperTrail) {
                   const isEnabled = config.settings.pluginOptions.paperTrail.enabled === true;
                   
-                  console.log(`Paper Trail setting for ${config.uid} is now: ${isEnabled ? 'ENABLED' : 'DISABLED'}`);
+                  // Paper Trail setting updated
                   
                   // Update the global registry
                   if (global.paperTrailContentTypes) {
@@ -72,30 +72,28 @@ module.exports = async ({ strapi }) => {
               }
             }
           } catch (error) {
-            console.error('Paper Trail lifecycle error:', error);
+            // Paper Trail lifecycle error
           }
         }
       });
       
-      console.log('Paper Trail: Direct lifecycle hooks registered for content type configurations');
+      // Direct lifecycle hooks registered for content type configurations
     }
   } catch (error) {
-    console.error('Failed to register Paper Trail direct hooks:', error);
+    // Failed to register Paper Trail direct hooks
   }
 
   // Register the Paper Trail middleware for Strapi V5
   try {
     // Get middleware instances
-    console.log('[Paper Trail] Getting middleware instances in register.js');
+    // Get middleware instances
     const paperTrailMiddleware = middlewares.paperTrail({ strapi });
     const userCaptureMiddleware = middlewares.userCapture({ strapi });
-    
-    console.log('[Paper Trail] userCaptureMiddleware obtained:', !!userCaptureMiddleware);
     
     // Register the user capture middleware (for ALL routes including admin)
     // This ensures we capture the user for any request
     strapi.server.use(userCaptureMiddleware);
-    console.log('[Paper Trail] User capture middleware registered for all routes');
+    // User capture middleware registered for all routes
     
     // Register the paper trail middleware (only for API routes)
     strapi.server.use((ctx, next) => {
@@ -108,8 +106,8 @@ module.exports = async ({ strapi }) => {
       return paperTrailMiddleware(ctx, next);
     });
     
-    console.log('Paper Trail middleware registered successfully');
+    // Paper Trail middleware registered successfully
   } catch (error) {
-    console.error('Failed to register Paper Trail middleware:', error);
+    // Failed to register Paper Trail middleware
   }
 };

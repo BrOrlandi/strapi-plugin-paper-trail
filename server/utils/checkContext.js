@@ -11,9 +11,8 @@ module.exports = context => {
   const { status } = context.response;
 
   // Early exit for non-API requests
-  console.log('[DEBUG] checkContext analyzing URL:', url);
   if (url.startsWith('/admin') && !url.includes('/content-manager/')) {
-    console.log('[DEBUG] checkContext early exit - admin URL that is not content-manager');
+    // Admin URL that is not content-manager, not relevant for Paper Trail
     return { contentTypeName: null, schema: null };
   }
 
@@ -28,14 +27,7 @@ module.exports = context => {
   const adminMatchCheck = Boolean(matchAdminPath(url));
   const apiMatchCheck = Boolean(matchApiPath(url));
 
-  console.log('[DEBUG] checkContext checks:', {
-    allowedStatusCheck,
-    allowedMethodsCheck,
-    adminMatchCheck,
-    apiMatchCheck,
-    status,
-    method
-  });
+  // Check if request meets Paper Trail tracking criteria
   
   if (
     allowedStatusCheck &&
@@ -46,16 +38,13 @@ module.exports = context => {
       const params = getPathParams(url, adminMatchCheck);
       const { contentTypeName } = params;
 
-      console.log('[DEBUG] checkContext contentTypeName:', contentTypeName);
-      
-      // Check if we already know this content type has Paper Trail enabled
+      // Get content type schema
       // This is a performance optimization to skip schema lookup for content types
       // we know don't have Paper Trail enabled
       const schema = getContentTypeSchema(contentTypeName, adminMatchCheck);
-      console.log('[DEBUG] checkContext schema obtained:', schema?.uid || 'null');
 
       if (!schema) {
-        console.log('[DEBUG] checkContext early exit - no schema found');
+        // No schema found, can't track changes
         return { contentTypeName: null, schema: null };
       }
 
@@ -63,23 +52,18 @@ module.exports = context => {
       
       // Check if this content type has Paper Trail enabled using our global registry
       // This registry is populated in bootstrap.js
-      console.log('[DEBUG] checkContext checking global registry for:', uid);
-      console.log('[DEBUG] checkContext global registry contains:', 
-        global.paperTrailContentTypes ? Array.from(global.paperTrailContentTypes) : 'undefined');
-        
       if (global.paperTrailContentTypes && !global.paperTrailContentTypes.has(uid)) {
         // Not in our registry, so Paper Trail is not enabled for this content type
-        console.log('[DEBUG] checkContext early exit - not in global registry');
         return { contentTypeName: null, schema: null };
       }
       
       const change = getChangeType(method);
       
-      console.log(`Paper Trail processing ${change} for ${uid}`);
+      // Paper Trail processing request
       
       return { schema, uid, isAdmin: adminMatchCheck, change };
     } catch (error) {
-      console.error('Paper Trail checkContext error:', error);
+      // Paper Trail checkContext error
       return { contentTypeName: null, schema: null };
     }
   }

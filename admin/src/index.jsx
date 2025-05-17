@@ -40,8 +40,6 @@ export default {
 
     // Extend the Content-Type Builder form for Strapi V5 - simpler approach
     try {
-      console.log('[Paper Trail] Setting up form extension in the CTB');
-      
       const ctb = app.getPlugin('content-type-builder');
       
       if (ctb && ctb.apis && ctb.apis.forms) {
@@ -76,13 +74,9 @@ export default {
             },
           },
         });
-        
-        console.log('[Paper Trail] Form extension registered successfully');
-      } else {
-        console.error('[Paper Trail] Content-Type Builder forms API not found.');
       }
     } catch (error) {
-      console.error('[Paper Trail] Form extension failed:', error);
+      // Silently handle errors
     }
 
     // Remove the problematic app.registerHook, as it's causing an Invariant Violation
@@ -124,9 +118,7 @@ export default {
   },
 
   bootstrap(app) {
-    console.log('[Paper Trail] Plugin bootstrapping...');
-    
-    // Register components in the correct injection zones for Strapi V5
+    // Register components in the injection zones for Strapi V5
     try {
       const contentManager = app.getPlugin('content-manager');
       
@@ -136,25 +128,20 @@ export default {
           const parts = zone.split('.');
           if (parts.length >= 3) {
             const viewPart = parts[1]; // e.g. 'editView'
-            const zonePart = parts[2]; // e.g. 'informations'
+            const zonePart = parts[2]; // e.g. 'right-links'
             
             if (Array.isArray(components)) {
               components.forEach((componentFn) => {
                 // Get the component to inject
                 const component = componentFn();
                 contentManager.injectComponent(viewPart, zonePart, component);
-                console.log(`[Paper Trail] Injected component '${component.name}' into ${viewPart}.${zonePart}`);
               });
             }
           }
         });
-        
-        console.log('[Paper Trail] Injection zones registered successfully');
-      } else {
-        console.warn('[Paper Trail] Content Manager plugin not found, skipping component injection');
       }
     } catch (error) {
-      console.error('[Paper Trail] Failed to inject components:', error);
+      // Silently handle errors
     }
 
     // The formsAPI.extendContentType and the app.registerHook 

@@ -114,7 +114,7 @@ function PaperTrailViewer(props) {
       navigate(window.location.pathname, { replace: true });
     } catch (Err) {
       setError(Err);
-      console.warn('paper-trail:', Err);
+      // Paper trail error
     }
   }, [model, viewRevision, revisedFields, put, setError, collectionType, handleClose, navigate]);
 

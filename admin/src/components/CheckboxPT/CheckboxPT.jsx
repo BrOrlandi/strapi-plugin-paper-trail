@@ -42,7 +42,7 @@ const CheckboxPT = ({
     const newValue = !checkboxValue;
     setCheckboxValue(newValue);
     
-    console.log(`Paper Trail checkbox toggled to: ${newValue}`);
+    // Checkbox toggled
     
     // Try multiple onChange patterns for maximum compatibility
     try {
@@ -57,7 +57,7 @@ const CheckboxPT = ({
         });
       }
     } catch (error) {
-      console.error('Error in Paper Trail checkbox change handler:', error);
+      // Error in checkbox change handler
     }
   };
 

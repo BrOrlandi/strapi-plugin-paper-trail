@@ -16,7 +16,6 @@ global.paperTrailUserStorage = global.paperTrailUserStorage || new AsyncLocalSto
  * Middleware to capture the authenticated user and store it for the current request
  */
 module.exports = ({ strapi }) => {
-  console.log('[Paper Trail] User-capture middleware initialized');
   
   return async (ctx, next) => {
     // Try to get the user from various sources
@@ -49,16 +48,14 @@ module.exports = ({ strapi }) => {
                 where: { id: decoded.id }
               });
               
-              if (user) {
-                console.log(`[Paper Trail] Found user from JWT: ${user.username || user.email} (ID: ${user.id})`);
-              }
+              // User found
             }
           }
         } catch (error) {
-          console.log('[Paper Trail] Error processing JWT:', error.message);
+          // JWT verification error
         }
       } catch (error) {
-        console.log('[Paper Trail] Failed to process authorization header:', error.message);
+        // Error processing auth header
       }
     }
     
@@ -82,17 +79,15 @@ module.exports = ({ strapi }) => {
                   where: { id: payload.id }
                 });
                 
-                if (user) {
-                  console.log(`[Paper Trail] Found admin user: ${user.firstname} ${user.lastname} (ID: ${user.id})`);
-                }
+                // Admin user found
               }
             } catch (tokenError) {
-              console.log('[Paper Trail] Admin token verification failed:', tokenError.message);
+              // Token verification error
             }
           }
         }
       } catch (error) {
-        console.log('[Paper Trail] Failed to process admin request:', error.message);
+        // Admin request processing error
       }
     }
     
@@ -105,8 +100,6 @@ module.exports = ({ strapi }) => {
         ctx.url.includes('/admin') ||
         user.roles?.some(role => role.code === 'strapi-super-admin') || 
         false;
-      
-      console.log(`[Paper Trail] User captured for ${ctx.url}: ${isAdminUser ? 'Admin' : 'Regular'} user ID ${user.id}`);
       
       // Add an explicit isAdmin flag to the user object
       user.isAdminUser = isAdminUser;

@@ -43,14 +43,13 @@ const SavePaperTrailButton = ({ enabled }) => {
       });
       
       if (response.ok) {
-        console.log('Paper Trail settings saved successfully!');
         setSaved(true);
         setTimeout(() => setSaved(false), 3000);
       } else {
-        console.error('Failed to save Paper Trail settings:', await response.text());
+        // Failed to save settings
       }
     } catch (error) {
-      console.error('Error saving Paper Trail settings:', error);
+      // Error saving settings
     } finally {
       setSaving(false);
     }

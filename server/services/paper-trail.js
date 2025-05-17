@@ -15,10 +15,10 @@ module.exports = ({ strapi }) => ({
     // First check for admin-created changes
     if (change === 'create' && result?.createdBy?.id) {
       adminUserId = result.createdBy.id;
-      console.log('[Paper Trail] Found admin user ID from createdBy:', adminUserId);
+      // Admin user ID found from createdBy
     } else if ((change === 'update' || change === 'delete') && result?.updatedBy?.id) {
       adminUserId = result.updatedBy.id;
-      console.log('[Paper Trail] Found admin user ID from updatedBy:', adminUserId);
+      // Admin user ID found from updatedBy
     }
     
     // If no admin user found yet, check if current user is an admin
@@ -35,10 +35,10 @@ module.exports = ({ strapi }) => ({
       if (!adminUserId && currentUser) {
         if (currentUser.isAdminUser) {
           adminUserId = currentUser.id;
-          console.log('[Paper Trail] Using admin user from AsyncLocalStorage:', adminUserId);
+          // Using admin user from AsyncLocalStorage
         } else if (event.params?.user?.isAdminUser) {
           adminUserId = event.params.user.id;
-          console.log('[Paper Trail] Using admin user from event params:', adminUserId);
+          // Using admin user from event params
         }
       }
     } 
@@ -49,17 +49,17 @@ module.exports = ({ strapi }) => ({
       
       if (currentUser) {
         upUserId = currentUser.id;
-        console.log('[Paper Trail] Using user from AsyncLocalStorage:', upUserId);
+        // Using user from AsyncLocalStorage
       } else if (event.params?.user) {
         upUserId = event.params.user.id;
-        console.log('[Paper Trail] Using user from event params:', upUserId);
+        // Using user from event params
       }
     }
     
     // Additional check for admin context based on event properties
     if (result?.createdBy?.id || result?.updatedBy?.id) {
       // If result has createdBy/updatedBy, it's definitely an admin action
-      console.log('[Paper Trail] Detected admin action based on createdBy/updatedBy fields');
+      // Detected admin action based on createdBy/updatedBy fields
       isAdmin = true;
       
       // Force adminUserId to be set, and clear upUserId
@@ -70,26 +70,24 @@ module.exports = ({ strapi }) => ({
     }
     
     // Finally, log what we're going to do
-    console.log('[Paper Trail] Processing change as:', isAdmin ? 'Admin action' : 'Regular user action');
-    console.log('[Paper Trail] Admin user ID:', adminUserId);
-    console.log('[Paper Trail] User permissions user ID:', upUserId);
+    // Processing change as admin or regular user action
     
     // If we still don't have a user, try to find a default admin user as a fallback
     if (!adminUserId && !upUserId) {
-      console.log('[Paper Trail] No user identified, attempting to find user from token');
+      // Attempting to find user from token
       
       // First try to extract token from the event if available
       const authHeader = event.params?.headers?.authorization;
       if (authHeader && authHeader.startsWith('Bearer ')) {
         try {
           const token = authHeader.substring(7);
-          console.log('[Paper Trail] Found auth header in event, extracting token');
+          // Found auth header in event
           
           // Decode token to get user ID
           const tokenParts = token.split('.');
           if (tokenParts.length === 3) {
             const decoded = JSON.parse(Buffer.from(tokenParts[1], 'base64').toString());
-            console.log('[Paper Trail] Decoded token payload:', decoded);
+            // Token payload decoded
             
             if (decoded && decoded.id) {
               // Check for admin content (createdBy/updatedBy present) or explicit admin flag
@@ -102,23 +100,23 @@ module.exports = ({ strapi }) => ({
                 // It's an admin action
                 adminUserId = decoded.id;
                 upUserId = null; // Clear user permissions ID
-                console.log('[Paper Trail] Found admin user from token:', adminUserId);
+                // Admin user found from token
               } else {
                 // It's a regular API action
                 upUserId = decoded.id;
                 adminUserId = null; // Clear admin user ID
-                console.log('[Paper Trail] Found user from token:', upUserId);
+                // Regular user found from token
               }
             }
           }
         } catch (tokenError) {
-          console.log('[Paper Trail] Error extracting user from token:', tokenError.message);
+          // Error extracting user from token
         }
       }
       
       // If we still don't have a user, use a default admin
       if (!adminUserId && !upUserId) {
-        console.log('[Paper Trail] Still no user identified, using default admin');
+        // No user identified, using default admin
         try {
           // Find the first admin user (typically ID 1)
           const adminUsers = await strapi.db.query('admin::user').findMany({ 
@@ -128,32 +126,24 @@ module.exports = ({ strapi }) => ({
           
           if (adminUsers && adminUsers.length > 0) {
             adminUserId = adminUsers[0].id;
-            console.log('[Paper Trail] Using default admin user:', adminUserId);
+            // Using default admin user
           }
         } catch (error) {
-          console.log('[Paper Trail] Error finding default admin:', error.message);
+          // Error finding default admin
         }
       }
     }
     
-    console.log(
-      '[Paper Trail] users_permissions_user candidate:',
-      upUserId,
-      event.params?.user
-    );
+    // User permissions candidate identified
 
     const id = result?.id ? String(result.id) : undefined;
-    console.log('[Paper Trail] Extracted entity id:', id);
-    console.log('event.result:', result);
-    console.log('event.params.data:', body);
+    // Entity ID extracted from result
 
     /**
      * Early return, if we don't have an entity ID for existing or newly created entity the trail is useless
      */
     if (!id) {
-      console.warn(
-        '[Paper Trail] No entity id found, skipping trail creation.'
-      );
+      // No entity id found, skipping trail creation
       return;
     }
 
@@ -188,7 +178,7 @@ module.exports = ({ strapi }) => ({
       },
       version
     };
-    console.log('[Paper Trail] Trail to be created:', newTrail);
+    // Trail ready to be created
 
     /**
      * Save it
@@ -197,10 +187,10 @@ module.exports = ({ strapi }) => ({
       const entity = await strapi.documents(entityName).create({
         data: newTrail
       });
-      console.log('[Paper Trail] Trail created:', entity);
+      // Trail created successfully
       return entity;
     } catch (Err) {
-      console.warn('[Paper Trail] Error creating trail:', Err);
+      // Error creating trail
     }
 
     return trail;

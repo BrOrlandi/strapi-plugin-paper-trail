@@ -63,7 +63,7 @@ function PaperTrail() {
 
       return id;
     } catch (err) {
-      console.warn('paper-trail:', 'No existing single type for this UID', err);
+      // No existing single type for this UID
     }
 
     return null;
@@ -107,7 +107,7 @@ function PaperTrail() {
         setLoaded(true);
         setInitialLoad(true);
       } catch (Err) {
-        console.warn('paper-trail: ', Err);
+        // Paper trail error
         setError(Err);
       }
     }
