@@ -23,7 +23,7 @@ module.exports = {
       entityId: {
         type: 'string',
         required: true,
-        comment: 'The ID of the entity being tracked'
+        comment: 'The Document ID of the entity being tracked'
       },
       contentType: {
         type: 'string'
