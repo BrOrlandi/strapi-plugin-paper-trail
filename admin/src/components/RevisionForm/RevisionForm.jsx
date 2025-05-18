@@ -1,17 +1,15 @@
 import {
   Accordion,
-  AccordionContent,
-  AccordionToggle,
   Box,
   JSONInput,
   Typography
 } from '@strapi/design-system';
-import { useCMEditViewDataManager } from '@strapi/helper-plugin';
+import { unstable_useContentManagerContext as useContentManagerContext } from '@strapi/strapi/admin';
 import PropTypes from 'prop-types';
 import React, { Fragment, useState } from 'react';
 import { useIntl } from 'react-intl';
 
-import prepareTrailFromSchema from '../../../../server/utils/prepareTrailFromSchema';
+import prepareTrailFromSchema from '../../utils/prepareTrailFromSchema';
 import getTrad from '../../utils/getTrad';
 import RenderField from '../RenderField/RenderField';
 
@@ -20,7 +18,7 @@ function RevisionForm(props) {
 
   const { content } = trail;
 
-  const { layout } = useCMEditViewDataManager();
+  const { model } = useContentManagerContext();
 
   const { formatMessage } = useIntl();
   const [expanded, setExpanded] = useState(false);
@@ -29,7 +27,7 @@ function RevisionForm(props) {
    * trim ignored props and anything not in the current schema
    */
 
-  const { trail: trimmedContent } = prepareTrailFromSchema(content, layout);
+  const { trail: trimmedContent } = prepareTrailFromSchema(content, model);
 
   return (
     <Fragment>
@@ -54,24 +52,24 @@ function RevisionForm(props) {
       </form>
       {/* raw json */}
       <Box padding={4} background="neutral100">
-        <Accordion
+        <Accordion.Root
           expanded={expanded}
           onToggle={() => setExpanded(s => !s)}
           id="acc-field-pt-raw"
         >
-          <AccordionToggle
+          <Accordion.Trigger
             togglePosition="right"
             title={formatMessage({
               id: getTrad('plugin.admin.paperTrail.viewRawJson'),
               defaultMessage: 'View JSON'
             })}
           />
-          <AccordionContent>
+          <Accordion.Content>
             <Box padding={3}>
               <JSONInput value={JSON.stringify(trimmedContent, null, 2)} />
             </Box>
-          </AccordionContent>
-        </Accordion>
+          </Accordion.Content>
+        </Accordion.Root>
       </Box>
     </Fragment>
   );

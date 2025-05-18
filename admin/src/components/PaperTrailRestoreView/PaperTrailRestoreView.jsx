@@ -1,5 +1,5 @@
-import { BaseHeaderLayout, Box, Divider, Link } from '@strapi/design-system';
-import { ArrowLeft } from '@strapi/icons';
+import { Box, Divider, Link, Typography } from '@strapi/design-system';
+// Icons removed for V5 compatibility
 import { format, parseISO } from 'date-fns';
 import PropTypes from 'prop-types';
 import React, { Fragment } from 'react';
@@ -17,11 +17,16 @@ function PaperTrailRestoreView(props) {
   return (
     <Fragment>
       <Box background="neutral100">
-        <BaseHeaderLayout
-          navigationAction={
+        <Box
+          paddingTop={6}
+          paddingBottom={4}
+          paddingLeft={4}
+          paddingRight={4}
+        >
+          <Box paddingBottom={2}>
             <Link
               to="#back"
-              startIcon={<ArrowLeft />}
+              
               onClick={event => {
                 event.preventDefault();
                 setViewRevision(null);
@@ -32,23 +37,28 @@ function PaperTrailRestoreView(props) {
                 defaultMessage: 'Back'
               })}
             </Link>
-          }
-          title={`${formatMessage({
-            id: getTrad('plugin.admin.paperTrail.version'),
-            defaultMessage: 'Version'
-          })} ${trail.version}`}
-          subtitle={`${formatMessage({
-            id: getTrad('plugin.admin.paperTrail.id'),
-            defaultMessage: 'ID'
-          })}: ${trail.recordId} | ${trail.change} | ${format(
-            parseISO(trail.createdAt),
-            'MMM d, yyyy HH:mm'
-          )} ${formatMessage({
-            id: getTrad('plugin.admin.paperTrail.by'),
-            defaultMessage: 'by'
-          })} ${getUser(trail)}`}
-          as="h3"
-        />
+          </Box>
+          <Box paddingBottom={1}>
+            <Typography variant="alpha">
+              {`${formatMessage({
+                id: getTrad('plugin.admin.paperTrail.version'),
+                defaultMessage: 'Version'
+              })} ${trail.version}`}
+            </Typography>
+          </Box>
+          <Typography variant="epsilon">
+            {`${formatMessage({
+              id: getTrad('plugin.admin.paperTrail.id'),
+              defaultMessage: 'ID'
+            })}: ${trail.entityId} | ${trail.change} | ${format(
+              parseISO(trail.createdAt),
+              'MMM d, yyyy HH:mm'
+            )} ${formatMessage({
+              id: getTrad('plugin.admin.paperTrail.by'),
+              defaultMessage: 'by'
+            })} ${getUser(trail)}`}
+          </Typography>
+        </Box>
       </Box>
       <Box paddingBottom={6} paddingTop={6}>
         <Divider />
@@ -77,7 +87,7 @@ PaperTrailRestoreView.propTypes = {
     contentType: PropTypes.string,
     createdAt: PropTypes.string,
     id: PropTypes.number,
-    recordId: PropTypes.string,
+    entityId: PropTypes.string,
     updatedAt: PropTypes.string
   })
 };

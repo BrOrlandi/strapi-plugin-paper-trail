@@ -1,7 +1,7 @@
 {
-  "name": "strapi-plugin-paper-trail",
-  "version": "0.6.1",
-  "description": "Accountability and content versioning for strapi v4+",
+  "name": "strapi-plugin-paper-trail-v5",
+  "version": "0.7.0-rc.1",
+  "description": "Accountability and content versioning for Strapi v5+ with enhanced UI, field-level restoration and auto-refresh",
   "homepage": "https://github.com/PenguinOfWar/strapi-plugin-paper-trail#readme",
   "bugs": {
     "url": "https://github.com/PenguinOfWar/strapi-plugin-paper-trail/issues"
@@ -32,17 +32,25 @@
     {
       "name": "redondi88",
       "url": "https://github.com/redondi88"
+    },
+    {
+      "name": "BrOrlandi",
+      "url": "https://github.com/BrOrlandi"
     }
   ],
   "scripts": {
     "lint": "eslint admin/src server",
     "test": "jest",
-    "todo": "leasot -x --reporter markdown '{admin,server}/**/*' --ignore '**/*.+(jpg|jpeg|gif|png|svg|json)' > todo.md"
+    "todo": "leasot -x --reporter markdown '{admin,server}/**/*' --ignore '**/*.+(jpg|jpeg|gif|png|svg|json)' > todo.md",
+    "build": "strapi plugin:build",
+    "verify-build": "node build-verify.js",
+    "prepublishOnly": "npm run build && npm run verify-build",
+    "publish:dev": "npm publish --tag dev"
   },
   "dependencies": {
-    "@strapi/design-system": "^1.6.3",
-    "@strapi/helper-plugin": "^4.16.2",
-    "@strapi/icons": "^1.6.3",
+    "@strapi/design-system": "^2.0.0",
+    "@strapi/helper-plugin": "^5.0.0",
+    "@strapi/icons": "^2.0.0",
     "path-to-regexp": "^6.2.1",
     "prop-types": "^15.7.2"
   },
@@ -58,24 +66,43 @@
     "prettier": "^3.2.5",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^5.3.4",
-    "styled-components": "^5.3.6"
+    "react-router-dom": "^6.20.0",
+    "styled-components": "^5.3.11"
   },
   "peerDependencies": {
-    "@strapi/strapi": "^4.16.2",
-    "react": "^17.0.0 || ^18.0.0",
-    "react-dom": "^17.0.0 || ^18.0.0",
-    "react-router-dom": "^5.3.4",
-    "styled-components": "^5.3.3"
+    "@strapi/strapi": "^5.0.0",
+    "react": "^18.0.0",
+    "react-dom": "^18.0.0",
+    "react-router-dom": "^6.20.0",
+    "styled-components": "^5.3.11"
   },
   "engines": {
-    "node": ">=14.19.1 <=20.x.x",
-    "npm": ">=6.0.0"
+    "node": ">=18.0.0 <=20.x.x",
+    "npm": ">=8.0.0"
   },
   "strapi": {
     "name": "paper-trail",
-    "description": "Accountability and content versioning for strapi v4+",
+    "description": "Accountability and content versioning for Strapi v5+ with enhanced UI, field-level restoration and auto-refresh",
     "kind": "plugin",
     "displayName": "Paper Trail"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "source": "./admin/src/index.jsx",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./strapi-admin": {
+      "source": "./admin/src/index.jsx",
+      "require": "./dist/admin/index.js",
+      "default": "./dist/admin/index.js"
+    },
+    "./strapi-server": {
+      "source": "./server/index.js",
+      "require": "./dist/server/index.js",
+      "default": "./dist/server/index.js"
+    },
+    "./package.json": "./package.json"
   }
 }

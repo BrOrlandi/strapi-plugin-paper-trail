@@ -1,20 +1,18 @@
 import {
   Accordion,
-  AccordionContent,
-  AccordionToggle,
-  BaseHeaderLayout,
   Box,
   Divider,
   JSONInput,
-  Link
+  Link,
+  Typography
 } from '@strapi/design-system';
-import { useCMEditViewDataManager } from '@strapi/helper-plugin';
-import { ArrowLeft } from '@strapi/icons';
+import { unstable_useContentManagerContext as useContentManagerContext } from '@strapi/strapi/admin';
+// Icons removed for V5 compatibility
 import PropTypes from 'prop-types';
 import React, { Fragment, useEffect, useMemo, useState } from 'react';
 import { useIntl } from 'react-intl';
 
-import prepareTrailFromSchema from '../../../../server/utils/prepareTrailFromSchema';
+import prepareTrailFromSchema from '../../utils/prepareTrailFromSchema';
 import buildPayload from '../../utils/buildPayload';
 import getTrad from '../../utils/getTrad';
 import RenderField from '../RenderField/RenderField';
@@ -25,11 +23,11 @@ function PaperTrailReview(props) {
   const [expanded, setExpanded] = useState(false);
   const [changePayload, setChangePayload] = useState({});
 
-  const { layout } = useCMEditViewDataManager();
+  const { model } = useContentManagerContext();
 
   const { trail: trimmedContent } = useMemo(() => {
-    return prepareTrailFromSchema(content, layout);
-  }, [content, layout]);
+    return prepareTrailFromSchema(content, model);
+  }, [content, model]);
 
   const { formatMessage } = useIntl();
 
@@ -42,11 +40,16 @@ function PaperTrailReview(props) {
   return (
     <Fragment>
       <Box background="neutral100">
-        <BaseHeaderLayout
-          navigationAction={
+        <Box
+          paddingTop={6}
+          paddingBottom={4}
+          paddingLeft={4}
+          paddingRight={4}
+        >
+          <Box paddingBottom={2}>
             <Link
               to="#back"
-              startIcon={<ArrowLeft />}
+              
               onClick={event => {
                 event.preventDefault();
                 setShowReviewStep(false);
@@ -57,18 +60,23 @@ function PaperTrailReview(props) {
                 defaultMessage: 'Back'
               })}
             </Link>
-          }
-          title={formatMessage({
-            id: getTrad('plugin.admin.paperTrail.reviewChanges'),
-            defaultMessage: 'Review changes'
-          })}
-          subtitle={formatMessage({
-            id: getTrad('plugin.admin.paperTrail.reviewChangesDescription'),
-            defaultMessage:
-              "Review the below changes carefully. Upon clicking 'Restore' the record will be instantly updated with the selected values."
-          })}
-          as="h3"
-        />
+          </Box>
+          <Box paddingBottom={1}>
+            <Typography variant="alpha">
+              {formatMessage({
+                id: getTrad('plugin.admin.paperTrail.reviewChanges'),
+                defaultMessage: 'Review changes'
+              })}
+            </Typography>
+          </Box>
+          <Typography variant="epsilon">
+            {formatMessage({
+              id: getTrad('plugin.admin.paperTrail.reviewChangesDescription'),
+              defaultMessage:
+                "Review the below changes carefully. Upon clicking 'Restore' the record will be instantly updated with the selected values."
+            })}
+          </Typography>
+        </Box>
       </Box>
       <Box paddingBottom={6} paddingTop={6}>
         <Divider />
@@ -84,24 +92,24 @@ function PaperTrailReview(props) {
         ))}
       </Box>
       <Box padding={4} background="neutral100">
-        <Accordion
+        <Accordion.Root
           expanded={expanded}
           onToggle={() => setExpanded(s => !s)}
           id="acc-field-pt-raw"
         >
-          <AccordionToggle
+          <Accordion.Trigger
             togglePosition="right"
             title={formatMessage({
               id: getTrad('plugin.admin.paperTrail.viewRawJson'),
               defaultMessage: 'View JSON'
             })}
           />
-          <AccordionContent>
+          <Accordion.Content>
             <Box padding={3}>
               <JSONInput value={JSON.stringify(changePayload, null, 2)} />
             </Box>
-          </AccordionContent>
-        </Accordion>
+          </Accordion.Content>
+        </Accordion.Root>
       </Box>
     </Fragment>
   );
@@ -114,7 +122,7 @@ PaperTrailReview.propTypes = {
     contentType: PropTypes.string,
     createdAt: PropTypes.string,
     id: PropTypes.number,
-    recordId: PropTypes.string,
+    entityId: PropTypes.string,
     updatedAt: PropTypes.string,
     version: PropTypes.number
   }),

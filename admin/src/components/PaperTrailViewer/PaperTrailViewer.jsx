@@ -1,25 +1,18 @@
 import {
   Button,
   Dialog,
-  DialogBody,
-  DialogFooter,
   Flex,
-  ModalBody,
-  ModalFooter,
-  ModalHeader,
-  ModalLayout,
+  Modal,
   Typography
 } from '@strapi/design-system';
-import {
-  useCMEditViewDataManager,
-  useFetchClient
-} from '@strapi/helper-plugin';
-import { ExclamationMarkCircle } from '@strapi/icons';
+// Icons removed for V5 compatibility
+import { useContentManagerContext, useFetchClient } from '../../utils/hooks';
 import PropTypes from 'prop-types';
 import React, { Fragment, useCallback, useState } from 'react';
 import { useIntl } from 'react-intl';
+import { useNavigate } from 'react-router-dom';
 
-import prepareTrailFromSchema from '../../../../server/utils/prepareTrailFromSchema';
+import prepareTrailFromSchema from '../../utils/prepareTrailFromSchema';
 import buildPayload from '../../utils/buildPayload';
 import getTrad from '../../utils/getTrad';
 import PaperTrailRestoreView from '../PaperTrailRestoreView/PaperTrailRestoreView';
@@ -45,6 +38,7 @@ function PaperTrailViewer(props) {
   const [showReviewStep, setShowReviewStep] = useState(false);
 
   const { formatMessage } = useIntl();
+  const navigate = useNavigate();
 
   const handleClose = useCallback(() => {
     setVisible(!visible);
@@ -91,8 +85,8 @@ function PaperTrailViewer(props) {
    * Submission handler for restoring
    */
 
-  const request = useFetchClient();
-  const { layout } = useCMEditViewDataManager();
+  const { get, put } = useFetchClient();
+  const { model } = useContentManagerContext();
 
   const handleRestoreSubmission = useCallback(async () => {
     /**
@@ -101,9 +95,9 @@ function PaperTrailViewer(props) {
 
     // TODO: Warning about changing content type/UID dropping trails from the admin panel / killing relationship
 
-    const { recordId, content, contentType } = viewRevision;
+    const { entityId, content, contentType } = viewRevision;
 
-    const { trail: trimmedContent } = prepareTrailFromSchema(content, layout);
+    const { trail: trimmedContent } = prepareTrailFromSchema(content, model);
 
     const payload = buildPayload(trimmedContent, revisedFields);
 
@@ -111,22 +105,28 @@ function PaperTrailViewer(props) {
       const requestUri =
         collectionType === 'single-types'
           ? `/content-manager/${collectionType}/${contentType}`
-          : `/content-manager/${collectionType}/${contentType}/${recordId}`;
+          : `/content-manager/${collectionType}/${contentType}/${entityId}`;
 
-      await request.put(requestUri, payload);
+      await put(requestUri, payload);
 
-      window.location.reload();
+      // Use React Router navigation instead of page reload
+      handleClose();
+      navigate(window.location.pathname, { replace: true });
     } catch (Err) {
       setError(Err);
-      console.warn('paper-trail:', Err);
+      // Paper trail error
     }
-  }, [layout, viewRevision, revisedFields, request, setError, collectionType]);
+  }, [model, viewRevision, revisedFields, put, setError, collectionType, handleClose, navigate]);
 
   return (
     <Fragment>
       {visible && (
-        <ModalLayout onClose={() => handleClose()} labelledBy="title">
-          <ModalHeader>
+        <Modal.Root 
+          onClose={() => handleClose()} 
+          labelledBy="title" 
+          style={{ zIndex: 1000 }} // Higher z-index to ensure it's above other elements
+        >
+          <Modal.Header>
             <Typography
               fontWeight="bold"
               textColor="neutral800"
@@ -138,8 +138,8 @@ function PaperTrailViewer(props) {
                 defaultMessage: 'Revision History'
               })}
             </Typography>
-          </ModalHeader>
-          <ModalBody>
+          </Modal.Header>
+          <Modal.Content style={{ minHeight: '300px', maxHeight: '70vh', overflow: 'auto', width: '100%' }}>
             {!viewRevision && (
               <TrailTable
                 trails={trails}
@@ -167,7 +167,7 @@ function PaperTrailViewer(props) {
             )}
             {/* error alert */}
             {error && (
-              <Dialog
+              <Dialog.Root
                 onClose={() => setError(null)}
                 title={formatMessage({
                   id: getTrad('plugin.admin.paperTrail.error'),
@@ -175,14 +175,14 @@ function PaperTrailViewer(props) {
                 })}
                 isOpen={Boolean(error)}
               >
-                <DialogBody icon={<ExclamationMarkCircle />}>
+                <Dialog.Content>
                   <Flex direction="column" alignItems="center" gap={2}>
                     <Flex justifyContent="center">
                       <Typography>{String(error)}</Typography>
                     </Flex>
                   </Flex>
-                </DialogBody>
-                <DialogFooter
+                </Dialog.Content>
+                <Dialog.Footer
                   startAction={
                     <Button onClick={() => setError(null)} variant="tertiary">
                       {formatMessage({
@@ -192,10 +192,19 @@ function PaperTrailViewer(props) {
                     </Button>
                   }
                 />
-              </Dialog>
+              </Dialog.Root>
             )}
-          </ModalBody>
-          <ModalFooter
+          </Modal.Content>
+          <Modal.Footer
+            startActions={
+              <Button onClick={() => handleClose()} variant="tertiary">
+                {formatMessage({
+                  id: getTrad('plugin.admin.paperTrail.close'),
+                  defaultMessage: 'Close'
+                })}
+              </Button>
+            }
+            style={{ backgroundColor: 'white', borderTop: '1px solid #eaeaef' }}
             endActions={
               <Fragment>
                 {!showReviewStep &&
@@ -215,7 +224,7 @@ function PaperTrailViewer(props) {
                   revisedFields &&
                   revisedFields.length > 0 && (
                     <Button
-                      variant="danger"
+                      variant="danger-light"
                       onClick={() => handleRestoreSubmission()}
                     >
                       {formatMessage({
@@ -224,16 +233,10 @@ function PaperTrailViewer(props) {
                       })}
                     </Button>
                   )}
-                <Button onClick={() => handleClose()} variant="tertiary">
-                  {formatMessage({
-                    id: getTrad('plugin.admin.paperTrail.close'),
-                    defaultMessage: 'Close'
-                  })}
-                </Button>
               </Fragment>
             }
           />
-        </ModalLayout>
+        </Modal.Root>
       )}
     </Fragment>
   );
@@ -256,7 +259,7 @@ PaperTrailViewer.propTypes = {
       contentType: PropTypes.string,
       createdAt: PropTypes.string,
       id: PropTypes.number,
-      recordId: PropTypes.string,
+      entityId: PropTypes.string,
       updatedAt: PropTypes.string,
       version: PropTypes.number
     })

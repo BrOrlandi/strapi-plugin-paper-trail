@@ -1,19 +1,12 @@
 import {
   Box,
   Card,
-  CardAsset,
-  CardBadge,
-  CardBody,
-  CardContent,
-  CardHeader,
-  CardSubtitle,
-  CardTitle,
-  GridItem,
+  Grid,
   Loader,
   Typography
 } from '@strapi/design-system';
-import { useFetchClient } from '@strapi/helper-plugin';
-import { Picture } from '@strapi/icons';
+import { useFetchClient } from '@strapi/strapi/admin';
+// Icons removed for V5 compatibility
 import PropTypes from 'prop-types';
 import React, { useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
@@ -29,14 +22,14 @@ function MediaCard(props) {
 
   const { formatMessage } = useIntl();
 
-  const request = useFetchClient();
+  const { get } = useFetchClient();
 
   useEffect(() => {
     async function fetchData() {
       const requestUri = `/upload/files?page=1&pageSize=1&filters[$and][0][id]=${id}`;
 
       try {
-        const result = await request.get(requestUri);
+        const result = await get(requestUri);
 
         const { data = {} } = result;
 
@@ -54,16 +47,16 @@ function MediaCard(props) {
           );
         }
       } catch (Err) {
-        console.warn('paper-trail: ', Err);
+        // Paper trail error
         setError(Err);
       }
     }
 
     fetchData();
-  }, [id, formatMessage, request]);
+  }, [id, formatMessage, get]);
 
   return (
-    <GridItem col={4}>
+    <Grid.Item col={4}>
       {error ? (
         <Box
           background="neutral0"
@@ -79,34 +72,30 @@ function MediaCard(props) {
         </Box>
       ) : null}
       {!error && loaded && media ? (
-        <Card
-          style={{
-            width: '100%'
-          }}
-        >
-          <CardHeader>
-            <CardAsset
+        <Card>
+          <Card.Header>
+            <Card.Asset
               src={
                 media?.mime?.includes('image')
                   ? media?.formats?.thumbnail?.url || media.url
                   : null
               }
             >
-              {!media?.mime?.includes('image') ? <Picture /> : null}
-            </CardAsset>
-          </CardHeader>
-          <CardBody>
-            <CardContent>
-              <CardTitle>{String(media?.name)}</CardTitle>
-              <CardSubtitle>{String(media?.mime)}</CardSubtitle>
-            </CardContent>
-            <CardBadge>
+              {!media?.mime?.includes('image') ? "File" : null}
+            </Card.Asset>
+          </Card.Header>
+          <Card.Body>
+            <Card.Content>
+              <Card.Title>{String(media?.name)}</Card.Title>
+              <Card.Subtitle>{String(media?.mime)}</Card.Subtitle>
+            </Card.Content>
+            <Card.Badge>
               {formatMessage({
                 id: getTrad('plugin.admin.paperTrail.media'),
                 defaultMessage: 'Media'
               })}
-            </CardBadge>
-          </CardBody>
+            </Card.Badge>
+          </Card.Body>
         </Card>
       ) : (
         <Box
@@ -122,7 +111,7 @@ function MediaCard(props) {
           <Loader />
         </Box>
       )}
-    </GridItem>
+    </Grid.Item>
   );
 }
 

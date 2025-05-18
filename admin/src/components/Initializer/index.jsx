@@ -13,7 +13,9 @@ const Initializer = ({ setPlugin }) => {
   ref.current = setPlugin;
 
   useEffect(() => {
+    console.log(`[Paper Trail DEBUG] Initializing plugin with ID: ${pluginId}`);
     ref.current(pluginId);
+    console.log('[Paper Trail DEBUG] Plugin initialized');
   }, []);
 
   return null;

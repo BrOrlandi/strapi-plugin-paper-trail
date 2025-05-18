@@ -1,13 +1,21 @@
-# Strapi Plugin Paper Trail
+# Strapi Plugin Paper Trail for Strapi V5 (Enhanced)
 
-Accountability and content versioning for strapi v4+.
+Accountability and content versioning for Strapi v5+ with enhanced UI, field-level restoration and auto-refresh.
+
+This is a fork of the original [strapi-plugin-paper-trail](https://www.npmjs.com/package/strapi-plugin-paper-trail) with the following enhancements:
+
+- **Improved UI** with larger font sizes throughout
+- **Field-level restoration** - select which fields to restore from previous versions
+- **Auto-refresh functionality** - automatically updates after content changes
+- **Better auth handling** - fixes authentication issues during restoration
+- **Vanilla JavaScript fallback** - works even when React components fail to load
 
 [![npm version](https://badge.fury.io/js/strapi-plugin-paper-trail.svg)](https://badge.fury.io/js/strapi-plugin-paper-trail) [![Unit Tests](https://github.com/PenguinOfWar/strapi-plugin-paper-trail/actions/workflows/unit-test.yml/badge.svg)](https://github.com/PenguinOfWar/strapi-plugin-paper-trail/actions/workflows/unit-test.yml)
 
 ## Requirements
 
-1. `node` `v14` or higher
-2. `strapi` `v4.10` or higher
+1. `node` `v18` or higher
+2. `strapi` `v5.0` or higher
 
 ## Features
 
@@ -23,10 +31,10 @@ To install this plugin, you need to add an NPM dependency to your Strapi applica
 
 ```sh
 # Using Yarn
-yarn add strapi-plugin-paper-trail
+yarn add strapi-plugin-paper-trail-v5
 
 # Or using NPM
-npm install strapi-plugin-paper-trail --save
+npm install strapi-plugin-paper-trail-v5 --save
 ```
 
 Enable the plugin by adding the following in `./config/plugins.js`.
@@ -35,7 +43,8 @@ Enable the plugin by adding the following in `./config/plugins.js`.
 module.exports = {
   // ...
   'paper-trail': {
-    enabled: true
+    enabled: true,
+    resolve: './node_modules/strapi-plugin-paper-trail-v5'
   }
   // ...
 };
@@ -47,7 +56,8 @@ Or, if you are using TypeScript, in `./config/plugins.ts`.
 export default {
   // ...
   'paper-trail': {
-    enabled: true
+    enabled: true,
+    resolve: './node_modules/strapi-plugin-paper-trail-v5'
   }
   // ...
 };
@@ -69,11 +79,11 @@ npm run build
 
 The functionality of this plugin is opt-in on a per content type basis and can be disabled at any time.
 
-To enable the plugin, edit the content type via the Content-Type Builder screen.
+### Important Change for Strapi V5
 
-![Screenshot 2023-06-05 at 16 27 12](https://github.com/PenguinOfWar/strapi-plugin-paper-trail/assets/1913241/98d2d386-55e7-4bcc-be76-238deb64f4dd)
+In Strapi V5, the Paper Trail toggle in the Content-Type Builder UI is **read-only**. You must configure Paper Trail by directly editing the content type's `schema.json` file.
 
-Or by modifying the `pluginOption` object on your models `schema.json`.
+To enable Paper Trail for a content type, modify the `pluginOptions` object in your model's `schema.json`:
 
 ```json
   // ...
@@ -105,17 +115,47 @@ Once you are ready, you will get a final chance to review the entire scope of th
 
 Clicking 'Restore' will then immediately overwrite the selected fields on the original record, restoring your revision.
 
+## Debugging
+
+If you encounter issues with the Paper Trail panel not appearing in the content manager, you can use the browser console to debug:
+
+```javascript
+// Check if the plugin is registered and properly initialized
+window.debugPaperTrailPlugin();
+
+// Force inject the Paper Trail component if it's not visible
+window.paperTrailForceInject();
+
+// Force refresh the Paper Trail panel to get latest version information
+window.paperTrailForceRefresh();
+
+// Use vanilla JavaScript implementation (for when React components fail)
+window.injectVanillaPaperTrail();
+```
+
+## Troubleshooting
+
+If the Paper Trail panel doesn't appear in the content manager:
+
+1. Make sure Paper Trail is enabled for the content type in its schema.json
+2. Rebuild the admin panel with `npm run build`
+3. Restart Strapi with `npm run develop`
+4. Check the browser console for any error messages
+5. Open your browser console and run `window.debugPaperTrailPlugin()`
+6. If needed, try forcing the component injection with `window.paperTrailForceInject()`
+
 ## Notes & Considerations
 
-While I have tried to keep the plugin as simple and intuitive to use as possible, there are some notes and considerations to mention. Some of these are `strapi` specific, some are specific to the challenge of version control, and others are plugin specific challenges.
+While we have tried to keep the plugin as simple and intuitive to use as possible, there are some notes and considerations to mention. Some of these are `strapi` specific, some are specific to the challenge of version control, and others are plugin specific challenges.
 
-1. The plugin has currently only been tested on `node v18` and `node v20`, though it should work perfectly on any node version that `strapi v4` directly supports (currently `node v14` and up).
+1. The plugin has been updated to work with Strapi V5.
 2. The plugin relies on the content type plugin `UID` property to identify the correct content type and associate the revision history. If you change this value you will lose previous revision histories (all revision history records can be manually browsed and modified from `Content Manager > Collection Types > Trail`).
 3. This has not been tested with all available custom field plugins, however as long as the custom field plugin implements on top of the core strapi content manager types (e.g. `string`, `text`, `biginteger`, `json`, `component`, and so on) and isn't doing anything too arcane, then it should be fine.
 4. The plugin is a middleware listening on the admin and user content management endpoints. Making changes directly to the records outside of this scope (e.g. from a custom service or controller) will not be logged as a revision by the plugin, however it shouldn't be difficult to manually implement this if needed.
 5. Attempting to restore a unique field with a duplicate value will cause the request to fail.
 6. Likewise, attempting to restore a field that has been since deleted from the schema or renamed will cause the attempt to fail (restoration of a delete field is on the roadmap)
 7. `password` type is not supported for security reasons.
+
 8. The plugin is still in early development, use with caution!
 9. Pull requests for new features and fixes welcome and encouraged 🚀
 

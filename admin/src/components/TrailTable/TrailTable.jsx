@@ -141,7 +141,7 @@ function TrailTable(props) {
           <Typography variant="beta">
             {formatMessage({
               id: getTrad('plugin.admin.paperTrail.noTrails'),
-              defaultMessage: 'Close'
+              defaultMessage: 'No versions (yet)'
             })}
           </Typography>
         ))}

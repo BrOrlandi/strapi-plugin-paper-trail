@@ -20,9 +20,10 @@ module.exports = {
       }
     },
     attributes: {
-      recordId: {
-        type: 'biginteger',
-        required: true
+      entityId: {
+        type: 'string',
+        required: true,
+        comment: 'The Document ID of the entity being tracked'
       },
       contentType: {
         type: 'string'
