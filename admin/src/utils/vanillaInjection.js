@@ -94,6 +94,23 @@ const formatDate = dateString => {
   return date.toLocaleString();
 };
 
+// Function to get JWT token from cookies
+const getJwtFromCookies = () => {
+  try {
+    const cookies = document.cookie.split(';');
+    for (const cookie of cookies) {
+      const [name, value] = cookie.trim().split('=');
+      if (name === 'jwtToken' || name === 'jwt' || name === 'strapi_jwt') {
+        return decodeURIComponent(value);
+      }
+    }
+    return null;
+  } catch (error) {
+    console.error('[Paper Trail] Error extracting JWT from cookies:', error);
+    return null;
+  }
+};
+
 // Function to get user display name
 const getUserDisplayName = (trail = {}) => {
   const { admin_user, users_permissions_user } = trail;
@@ -1042,24 +1059,109 @@ const showTrailDetail = async trail => {
         let response;
         
         try {
-          // Try the main endpoint first
+          // Get auth token from cookies or localStorage
+          let authToken = null;
+          
+          // First check cookies for jwtToken (as seen in the working request)
+          const cookieToken = getJwtFromCookies();
+          if (cookieToken) {
+            authToken = cookieToken;
+            console.log('[Paper Trail] Found JWT token in cookie');
+          }
+          
+          // If not found in cookies, try localStorage
+          if (!authToken) {
+            try {
+              const jwtData = localStorage.getItem('jwtToken') || 
+                             localStorage.getItem('jwt') || 
+                             localStorage.getItem('strapi_jwt');
+              
+              if (jwtData) {
+                authToken = jwtData.replace(/^"(.*)"$/, '$1'); // Remove quotes if present
+                console.log('[Paper Trail] Found JWT token in localStorage');
+              }
+              
+              // If not found, try to look in the strapi-admin object
+              if (!authToken) {
+                const strapiAdmin = JSON.parse(localStorage.getItem('strapi-admin-auth') || '{}');
+                if (strapiAdmin && strapiAdmin.token) {
+                  authToken = strapiAdmin.token;
+                  console.log('[Paper Trail] Found JWT token in strapi-admin-auth');
+                }
+              }
+            } catch (tokenError) {
+              console.log('[Paper Trail] Error getting auth token from localStorage:', tokenError);
+            }
+          }
+          
+          // If still no token, try to find it from Strapi's fetch wrapper in window.__fetchWrapper
+          if (!authToken && window.__STRAPI_APP_STATE) {
+            try {
+              // Try to access Strapi's auth token from app state
+              const strapiState = window.__STRAPI_APP_STATE;
+              if (strapiState && strapiState.admin && strapiState.admin.auth && strapiState.admin.auth.token) {
+                authToken = strapiState.admin.auth.token;
+                console.log('[Paper Trail] Found JWT token in Strapi app state');
+              }
+            } catch (strapiError) {
+              console.log('[Paper Trail] Error accessing Strapi app state:', strapiError);
+            }
+          }
+          
+          // If still no token, add an XHR interceptor to try to capture auth headers from other requests
+          if (!authToken && !window.paperTrailXhrInterceptorSet) {
+            // This will help for future restorations, but might not help with this one
+            window.paperTrailXhrInterceptorSet = true;
+            
+            // Store any Authorization header we see in global variable
+            window.paperTrailCapturedAuth = null;
+            
+            const originalXHROpen = XMLHttpRequest.prototype.open;
+            const originalXHRSetRequestHeader = XMLHttpRequest.prototype.setRequestHeader;
+            
+            XMLHttpRequest.prototype.setRequestHeader = function(header, value) {
+              if (header.toLowerCase() === 'authorization' && value.toLowerCase().startsWith('bearer ')) {
+                window.paperTrailCapturedAuth = value.substring(7); // Remove 'Bearer ' prefix
+                console.log('[Paper Trail] Captured auth token from XHR request');
+              }
+              return originalXHRSetRequestHeader.apply(this, arguments);
+            };
+            
+            console.log('[Paper Trail] XHR interceptor set up to capture auth token');
+          }
+          
+          // Check if we previously captured an auth token
+          if (!authToken && window.paperTrailCapturedAuth) {
+            authToken = window.paperTrailCapturedAuth;
+            console.log('[Paper Trail] Using previously captured auth token');
+          }
+          
+          console.log('[Paper Trail] Using auth token (first few chars):', authToken ? authToken.substring(0, 15) + '...' : 'No token found');
+          
+          // Try the main endpoint with exact same headers format as seen in working request
           response = await fetch(endpoint, {
             method: 'PUT',
             headers: {
-              'Content-Type': 'application/json'
+              'accept': 'application/json',
+              'content-type': 'application/json',
+              ...(authToken ? { 'authorization': `Bearer ${authToken}` } : {}) // lowercase 'authorization' is important
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            credentials: 'include'  // Include cookies for session-based auth
           });
         } catch (error) {
           console.log('[Paper Trail] Error updating with main endpoint:', error);
           
-          // Try the legacy endpoint
+          // Try the legacy endpoint using the same format as the working request
           response = await fetch(legacyEndpoint, {
             method: 'PUT',
             headers: {
-              'Content-Type': 'application/json'
+              'accept': 'application/json',
+              'content-type': 'application/json',
+              ...(authToken ? { 'authorization': `Bearer ${authToken}` } : {}) // lowercase 'authorization' is important
             },
-            body: JSON.stringify(payload)
+            body: JSON.stringify(payload),
+            credentials: 'include'  // Include cookies for session-based auth
           });
         }
         
@@ -1073,8 +1175,25 @@ const showTrailDetail = async trail => {
         // Close the modal
         document.body.removeChild(detailModalOverlay);
         
-        // Refresh the page to show updated content
-        window.location.reload();
+        // Refresh the Paper Trail panel first
+        try {
+          // Remove existing panel
+          const existingPanel = document.querySelector('.paper-trail-panel');
+          if (existingPanel) {
+            existingPanel.remove();
+          }
+          
+          // Re-inject the panel with updated data
+          await injectVanillaPaperTrail();
+          
+          // Then reload the page after a short delay to ensure everything updates properly
+          setTimeout(() => {
+            window.location.reload();
+          }, 500);
+        } catch (refreshError) {
+          console.log('[Paper Trail] Error refreshing panel, reloading page instead:', refreshError);
+          window.location.reload();
+        }
       } catch (error) {
         console.error('[Paper Trail] Error restoring fields:', error);
         alert('Error restoring fields: ' + error.message);
@@ -1763,11 +1882,305 @@ export const injectWithRetry = (maxRetries = 5, interval = 1000) => {
   tryInjection();
 };
 
+// Function to forcefully refresh the Paper Trail panel
+const forceRefreshPaperTrail = async () => {
+  console.log('[Paper Trail] Force refreshing Paper Trail panel');
+  
+  try {
+    // Get the current content info from URL
+    const contentInfo = extractContentTypeFromUrl();
+    if (!contentInfo || !contentInfo.contentType || !contentInfo.id) {
+      console.log('[Paper Trail] Cannot refresh: unable to extract content info from URL');
+      return;
+    }
+    
+    // Clear any cached data
+    window.paperTrailLatestData = null;
+    
+    // Remove existing panel
+    const existingPanel = document.querySelector('.paper-trail-panel');
+    if (existingPanel) {
+      existingPanel.remove();
+    }
+    
+    // Force clear cache and fetch fresh data
+    try {
+      // Fetch fresh data with cache-busting query param
+      const cacheKey = Date.now();
+      const endpoint = `/paper-trail/trails?contentType=${encodeURIComponent(contentInfo.contentType)}&entityId=${contentInfo.id}&sort=version:DESC&t=${cacheKey}`;
+      const response = await fetch(endpoint, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      
+      if (response.ok) {
+        // Successfully fetched fresh data
+        console.log('[Paper Trail] Successfully fetched fresh data');
+      }
+    } catch (error) {
+      console.log('[Paper Trail] Error fetching fresh data:', error);
+    }
+    
+    // Re-inject the panel with updated data
+    await injectVanillaPaperTrail();
+    
+    // Update version display if needed
+    const versionSpan = document.querySelector('.paper-trail-panel span[style*="color: #666687"]');
+    if (versionSpan) {
+      // Check if we need to refresh the version display
+      try {
+        const trailData = await fetchTrailData(contentInfo.contentType, contentInfo.id);
+        if (trailData && trailData.version) {
+          versionSpan.textContent = `Version ${trailData.version}`;
+          
+          // Also update last updated info
+          const lastUpdatedElement = document.querySelector('.paper-trail-panel p[style*="color: #32324d"]');
+          if (lastUpdatedElement && trailData.createdAt) {
+            lastUpdatedElement.textContent = formatDate(trailData.createdAt);
+          }
+          
+          // Update updated by info
+          const updatedByElement = document.querySelectorAll('.paper-trail-panel p[style*="color: #32324d"]')[1];
+          if (updatedByElement) {
+            updatedByElement.textContent = getUserDisplayName(trailData);
+          }
+        }
+      } catch (error) {
+        console.log('[Paper Trail] Error updating version display:', error);
+      }
+    }
+  } catch (error) {
+    console.error('[Paper Trail] Error during force refresh:', error);
+  }
+};
+
+// Monitor for events to auto-refresh Paper Trail panel after content updates
+export const setupAutoRefreshMonitors = () => {
+  if (typeof window === 'undefined' || window.paperTrailMonitorsSetup) {
+    return;
+  }
+
+  console.log('[Paper Trail] Setting up auto-refresh monitors');
+  
+  // Store current URL to detect changes
+  let currentUrl = window.location.href;
+  let lastRefreshTime = Date.now();
+  const REFRESH_COOLDOWN = 2000; // Don't refresh more than once every 2 seconds
+  
+  // Make the refresh function available globally
+  window.paperTrailForceRefresh = forceRefreshPaperTrail;
+  
+  // Set up periodic refresh for the panel (every 10 seconds)
+  // This ensures the panel stays updated even without explicit triggers
+  const refreshInterval = setInterval(() => {
+    const panel = document.querySelector('.paper-trail-panel');
+    if (panel) {
+      forceRefreshPaperTrail();
+    } else {
+      // If panel doesn't exist anymore, clear the interval
+      clearInterval(refreshInterval);
+    }
+  }, 10000);
+  
+  // Use MutationObserver to detect form submissions and content updates
+  const observer = new MutationObserver((mutations) => {
+    // Check if we're within cooldown period
+    if (Date.now() - lastRefreshTime < REFRESH_COOLDOWN) {
+      return;
+    }
+    
+    for (const mutation of mutations) {
+      if (mutation.type === 'childList') {
+        // Button clicks that might indicate content updates
+        const saveButtons = document.querySelectorAll('button[type="submit"], button[form]');
+        saveButtons.forEach(button => {
+          if (button.textContent && 
+             (button.textContent.includes('Save') || 
+              button.textContent.includes('Update') || 
+              button.textContent.includes('Publish'))) {
+              
+            button.addEventListener('click', () => {
+              console.log('[Paper Trail] Save button click detected');
+              setTimeout(() => {
+                forceRefreshPaperTrail();
+                lastRefreshTime = Date.now();
+              }, 1500);
+            }, { once: true });
+          }
+        });
+        
+        // Check if any success notification is added
+        const notifications = document.querySelectorAll('[role="alert"]');
+        notifications.forEach(notification => {
+          if (notification.textContent && 
+             (notification.textContent.includes('saved') || 
+              notification.textContent.includes('updated') || 
+              notification.textContent.includes('created'))) {
+            
+            console.log('[Paper Trail] Content update notification detected');
+            
+            // Wait for the server to process the update before refreshing the panel
+            setTimeout(() => {
+              forceRefreshPaperTrail();
+              lastRefreshTime = Date.now();
+            }, 1500);
+          }
+        });
+        
+        // Check for URL changes (navigation between content items)
+        if (currentUrl !== window.location.href) {
+          console.log('[Paper Trail] URL changed, refreshing Paper Trail panel');
+          currentUrl = window.location.href;
+          
+          // Wait for new content to load
+          setTimeout(() => {
+            forceRefreshPaperTrail();
+            lastRefreshTime = Date.now();
+          }, 1000);
+        }
+      }
+    }
+  });
+
+  // Start observing the document for changes
+  observer.observe(document.body, { 
+    childList: true, 
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class', 'style'] // Watch for style/class changes that might indicate state changes
+  });
+  
+  // Listen for form submissions
+  document.addEventListener('submit', (event) => {
+    if (event.target.tagName === 'FORM') {
+      console.log('[Paper Trail] Form submission detected');
+      
+      // Wait for submission to complete before refreshing
+      setTimeout(() => {
+        forceRefreshPaperTrail();
+        lastRefreshTime = Date.now();
+      }, 1500);
+    }
+  }, true);
+  
+  // Monitor XHR requests that might indicate content updates
+  const originalXHROpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function() {
+    this.addEventListener('load', function() {
+      if (this.readyState === 4 && this.status === 200) {
+        const url = this.responseURL;
+        if (url && (url.includes('/content-manager/') || url.includes('/paper-trail/'))) {
+          
+          // Only refresh for PUT/POST/PATCH requests (content updates)
+          if (this._method && ['PUT', 'POST', 'PATCH'].includes(this._method.toUpperCase())) {
+            console.log('[Paper Trail] XHR content update detected:', this._method, url);
+            
+            setTimeout(() => {
+              forceRefreshPaperTrail();
+              lastRefreshTime = Date.now();
+            }, 1500);
+          }
+        }
+      }
+    });
+    
+    // Store the method for later use
+    this._method = arguments[0];
+    
+    return originalXHROpen.apply(this, arguments);
+  };
+  
+  // Monitor fetch API that might indicate content updates
+  const originalFetch = window.fetch;
+  window.fetch = function() {
+    const fetchPromise = originalFetch.apply(this, arguments);
+    
+    // Only proceed if the first argument is a string (URL) or Request object
+    if (typeof arguments[0] === 'string' || arguments[0] instanceof Request) {
+      const url = typeof arguments[0] === 'string' ? arguments[0] : arguments[0].url;
+      const method = arguments[1]?.method || 'GET';
+      
+      if (url && (url.includes('/content-manager/') || url.includes('/paper-trail/'))) {
+        if (['PUT', 'POST', 'PATCH'].includes(method.toUpperCase())) {
+          console.log('[Paper Trail] Fetch content update detected:', method, url);
+          
+          fetchPromise.then(response => {
+            if (response.ok) {
+              setTimeout(() => {
+                forceRefreshPaperTrail();
+                lastRefreshTime = Date.now();
+              }, 1500);
+            }
+          }).catch(() => {
+            // Ignore fetch errors
+          });
+        }
+      }
+    }
+    
+    return fetchPromise;
+  };
+  
+  // Monitor URL changes using history API
+  const originalPushState = window.history.pushState;
+  const originalReplaceState = window.history.replaceState;
+  
+  window.history.pushState = function() {
+    originalPushState.apply(this, arguments);
+    
+    // Wait to ensure new content is loaded
+    setTimeout(() => {
+      if (currentUrl !== window.location.href) {
+        console.log('[Paper Trail] History pushState detected');
+        currentUrl = window.location.href;
+        
+        forceRefreshPaperTrail();
+        lastRefreshTime = Date.now();
+      }
+    }, 1000);
+  };
+  
+  window.history.replaceState = function() {
+    originalReplaceState.apply(this, arguments);
+    
+    // Wait to ensure new content is loaded
+    setTimeout(() => {
+      if (currentUrl !== window.location.href) {
+        console.log('[Paper Trail] History replaceState detected');
+        currentUrl = window.location.href;
+        
+        forceRefreshPaperTrail();
+        lastRefreshTime = Date.now();
+      }
+    }, 1000);
+  };
+  
+  // Also set up refresh on page visibility changes (user returns to tab)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      console.log('[Paper Trail] Page visibility changed to visible');
+      
+      setTimeout(() => {
+        forceRefreshPaperTrail();
+        lastRefreshTime = Date.now();
+      }, 1000);
+    }
+  });
+  
+  window.paperTrailMonitorsSetup = true;
+};
+
 // Make the function available globally
 export const attachVanillaInjectionToWindow = () => {
   if (typeof window !== 'undefined') {
     window.injectVanillaPaperTrail = injectVanillaPaperTrail;
     window.injectPaperTrailWithRetry = injectWithRetry;
+    
+    // Set up all auto-refresh monitors
+    setupAutoRefreshMonitors();
 
     // Also add a simpler direct function that uses a nicely styled panel
     window.addPaperTrailSimplePanel = async () => {
@@ -1963,5 +2376,6 @@ export const attachVanillaInjectionToWindow = () => {
 export default {
   injectVanillaPaperTrail,
   injectWithRetry,
+  setupAutoRefreshMonitors,
   attachVanillaInjectionToWindow
 };
