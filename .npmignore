@@ -1,0 +1,36 @@
+# Development files
+.git/
+.github/
+.gitignore
+.DS_Store
+.env
+.env.*
+.vscode/
+.idea/
+
+# Tests
+tests/
+*.test.js
+jest.config.js
+coverage/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build process
+node_modules/
+.cache/
+.tmp/
+build/
+
+# Editor files
+*.swp
+*.swo
+*~
+
+# Misc
+todo.md

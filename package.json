@@ -1,7 +1,7 @@
 {
-  "name": "strapi-plugin-paper-trail",
-  "version": "0.7.0",
-  "description": "Accountability and content versioning for strapi v5+",
+  "name": "strapi-plugin-paper-trail-v5",
+  "version": "0.7.0-rc.1",
+  "description": "Accountability and content versioning for Strapi v5+ with enhanced UI, field-level restoration and auto-refresh",
   "homepage": "https://github.com/PenguinOfWar/strapi-plugin-paper-trail#readme",
   "bugs": {
     "url": "https://github.com/PenguinOfWar/strapi-plugin-paper-trail/issues"
@@ -32,12 +32,20 @@
     {
       "name": "redondi88",
       "url": "https://github.com/redondi88"
+    },
+    {
+      "name": "BrOrlandi",
+      "url": "https://github.com/BrOrlandi"
     }
   ],
   "scripts": {
     "lint": "eslint admin/src server",
     "test": "jest",
-    "todo": "leasot -x --reporter markdown '{admin,server}/**/*' --ignore '**/*.+(jpg|jpeg|gif|png|svg|json)' > todo.md"
+    "todo": "leasot -x --reporter markdown '{admin,server}/**/*' --ignore '**/*.+(jpg|jpeg|gif|png|svg|json)' > todo.md",
+    "build": "strapi plugin:build",
+    "verify-build": "node build-verify.js",
+    "prepublishOnly": "npm run build && npm run verify-build",
+    "publish:dev": "npm publish --tag dev"
   },
   "dependencies": {
     "@strapi/design-system": "^2.0.0",
@@ -74,7 +82,7 @@
   },
   "strapi": {
     "name": "paper-trail",
-    "description": "Accountability and content versioning for strapi v5+",
+    "description": "Accountability and content versioning for Strapi v5+ with enhanced UI, field-level restoration and auto-refresh",
     "kind": "plugin",
     "displayName": "Paper Trail"
   },

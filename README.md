@@ -1,6 +1,14 @@
-# Strapi Plugin Paper Trail for Strapi V5
+# Strapi Plugin Paper Trail for Strapi V5 (Enhanced)
 
-Accountability and content versioning for Strapi v5+.
+Accountability and content versioning for Strapi v5+ with enhanced UI, field-level restoration and auto-refresh.
+
+This is a fork of the original [strapi-plugin-paper-trail](https://www.npmjs.com/package/strapi-plugin-paper-trail) with the following enhancements:
+
+- **Improved UI** with larger font sizes throughout
+- **Field-level restoration** - select which fields to restore from previous versions
+- **Auto-refresh functionality** - automatically updates after content changes
+- **Better auth handling** - fixes authentication issues during restoration
+- **Vanilla JavaScript fallback** - works even when React components fail to load
 
 [![npm version](https://badge.fury.io/js/strapi-plugin-paper-trail.svg)](https://badge.fury.io/js/strapi-plugin-paper-trail) [![Unit Tests](https://github.com/PenguinOfWar/strapi-plugin-paper-trail/actions/workflows/unit-test.yml/badge.svg)](https://github.com/PenguinOfWar/strapi-plugin-paper-trail/actions/workflows/unit-test.yml)
 
@@ -23,10 +31,10 @@ To install this plugin, you need to add an NPM dependency to your Strapi applica
 
 ```sh
 # Using Yarn
-yarn add strapi-plugin-paper-trail
+yarn add strapi-plugin-paper-trail-v5
 
 # Or using NPM
-npm install strapi-plugin-paper-trail --save
+npm install strapi-plugin-paper-trail-v5 --save
 ```
 
 Enable the plugin by adding the following in `./config/plugins.js`.
@@ -35,7 +43,8 @@ Enable the plugin by adding the following in `./config/plugins.js`.
 module.exports = {
   // ...
   'paper-trail': {
-    enabled: true
+    enabled: true,
+    resolve: './node_modules/strapi-plugin-paper-trail-v5'
   }
   // ...
 };
@@ -47,7 +56,8 @@ Or, if you are using TypeScript, in `./config/plugins.ts`.
 export default {
   // ...
   'paper-trail': {
-    enabled: true
+    enabled: true,
+    resolve: './node_modules/strapi-plugin-paper-trail-v5'
   }
   // ...
 };
@@ -115,6 +125,12 @@ window.debugPaperTrailPlugin();
 
 // Force inject the Paper Trail component if it's not visible
 window.paperTrailForceInject();
+
+// Force refresh the Paper Trail panel to get latest version information
+window.paperTrailForceRefresh();
+
+// Use vanilla JavaScript implementation (for when React components fail)
+window.injectVanillaPaperTrail();
 ```
 
 ## Troubleshooting
