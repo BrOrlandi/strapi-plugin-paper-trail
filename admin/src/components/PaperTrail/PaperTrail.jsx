@@ -11,6 +11,7 @@ import { useIntl } from 'react-intl';
 import { useParams } from 'react-router-dom';
 import { useContentManagerContext, useFetchClient } from '../../utils/hooks';
 import { checkPluginStatus } from '../../utils/debugPlugin';
+import { isPaperTrailEnabled } from '../../utils/contentTypeHelper';
 
 import getTrad from '../../utils/getTrad';
 import getUser from '../../utils/getUser';
@@ -30,7 +31,7 @@ function PaperTrail() {
   console.log('[Paper Trail DEBUG] Content Manager model:', model);
 
   const { uid, pluginOptions = {} } = model?.attributes ? model : { uid: '', pluginOptions: {} };
-  console.log('[Paper Trail DEBUG] UID:', uid, 'Paper Trail enabled:', pluginOptions?.paperTrail?.enabled);
+  console.log('[Paper Trail DEBUG] UID:', uid, 'Paper Trail enabled from model:', pluginOptions?.paperTrail?.enabled);
 
   const { formatMessage } = useIntl();
   // params works for collection types but not single types
@@ -38,8 +39,31 @@ function PaperTrail() {
   console.log('[Paper Trail DEBUG] Params:', { id, collectionType });
 
   const [entityId, setEntityId] = useState(id ? String(id) : undefined);
-
-  const paperTrailEnabled = pluginOptions?.paperTrail?.enabled;
+  const [paperTrailEnabled, setPaperTrailEnabled] = useState(false);
+  const modelHasPaperTrail = !!pluginOptions?.paperTrail?.enabled;
+  
+  // Use API check as fallback for model check
+  useEffect(() => {
+    if (modelHasPaperTrail) {
+      setPaperTrailEnabled(true);
+      return;
+    }
+    
+    const checkIfEnabled = async () => {
+      try {
+        // Only check if we have a valid UID
+        if (uid) {
+          const isEnabled = await isPaperTrailEnabled(uid);
+          console.log('[Paper Trail DEBUG] API check for Paper Trail enabled:', isEnabled);
+          setPaperTrailEnabled(isEnabled);
+        }
+      } catch (error) {
+        console.error('[Paper Trail DEBUG] Error checking if Paper Trail is enabled:', error);
+      }
+    };
+    
+    checkIfEnabled();
+  }, [uid, modelHasPaperTrail]);
 
   // TODO: add this to config/plugins.ts, needs a custom endpoint
   // https://forum.strapi.io/t/custom-field-settings/23068
@@ -87,6 +111,14 @@ function PaperTrail() {
 
   useEffect(() => {
     async function getTrails(page, pageSize) {
+      console.log('[Paper Trail DEBUG] Getting trails for:', { uid, entityId, page, paperTrailEnabled });
+      
+      if (!uid || !entityId) {
+        console.log('[Paper Trail DEBUG] Missing uid or entityId, skipping trail fetch');
+        setInitialLoad(true);
+        return;
+      }
+      
       const params = new URLSearchParams({
         page,
         pageSize,
@@ -97,8 +129,8 @@ function PaperTrail() {
 
       // Try both our custom API endpoint and the content-manager endpoint
       // Use the correct path format for Strapi V5
-      const apiEndpoint = `/paper-trail/trails?contentType=${encodeURIComponent(uid)}&entityId=${entityId}`;
-      const legacyApiEndpoint = `/api/paper-trail/trails?contentType=${encodeURIComponent(uid)}&entityId=${entityId}`;
+      const apiEndpoint = `/paper-trail/trails?contentType=${encodeURIComponent(uid)}&entityId=${entityId}&sort=version:DESC`;
+      const legacyApiEndpoint = `/api/paper-trail/trails?contentType=${encodeURIComponent(uid)}&entityId=${entityId}&sort=version:DESC`;
       const cmEndpoint = `/content-manager/collection-types/plugin::paper-trail.trail?${params}`;
 
       try {
@@ -107,17 +139,20 @@ function PaperTrail() {
         let useCustomApi = true;
         
         try {
+          console.log('[Paper Trail DEBUG] Trying API endpoint:', apiEndpoint);
           result = await get(apiEndpoint);
           console.log('[Paper Trail DEBUG] Custom API endpoint successful');
         } catch (apiError) {
           console.log('[Paper Trail DEBUG] Custom API failed, trying legacy endpoint:', apiError);
           try {
             // Try the legacy path format as a fallback
+            console.log('[Paper Trail DEBUG] Trying legacy endpoint:', legacyApiEndpoint);
             result = await get(legacyApiEndpoint);
             console.log('[Paper Trail DEBUG] Legacy API endpoint successful');
           } catch (legacyError) {
             console.log('[Paper Trail DEBUG] Legacy API failed, trying content-manager endpoint:', legacyError);
             useCustomApi = false;
+            console.log('[Paper Trail DEBUG] Trying CM endpoint:', cmEndpoint);
             result = await get(cmEndpoint);
           }
         }
@@ -129,6 +164,7 @@ function PaperTrail() {
         if (useCustomApi) {
           // Direct array from our custom API
           results = Array.isArray(result) ? result : [];
+          console.log('[Paper Trail DEBUG] API result:', results);
           pagination = { 
             total: results.length,
             pageCount: Math.ceil(results.length / pageSize) || 1
@@ -138,6 +174,7 @@ function PaperTrail() {
           const { data = {} } = result;
           results = data.results || [];
           pagination = data.pagination || { total: 0, pageCount: 1 };
+          console.log('[Paper Trail DEBUG] CM result:', results);
         }
 
         const { total, pageCount } = pagination;
@@ -160,16 +197,27 @@ function PaperTrail() {
         setInitialLoad(true);
       } catch (Err) {
         // Paper trail error
+        console.error('[Paper Trail DEBUG] Error fetching trails:', Err);
         setError(Err);
+        setLoaded(true);
+        setInitialLoad(true);
       }
     }
 
+    // Only auto-load trails if Paper Trail is enabled and component is visible
     if (!loaded && paperTrailEnabled && entityId) {
+      console.log('[Paper Trail DEBUG] Auto-loading trails');
       getTrails(page, pageSize);
-    } else {
+    } else if (!paperTrailEnabled) {
+      console.log('[Paper Trail DEBUG] Paper Trail not enabled, skipping auto-load');
+      setInitialLoad(true); // Still mark as initially loaded
+    } else if (!entityId) {
+      console.log('[Paper Trail DEBUG] No entity ID, skipping auto-load');
       setInitialLoad(true);
+    } else if (loaded) {
+      console.log('[Paper Trail DEBUG] Already loaded, skipping auto-load');
     }
-  }, [loaded, uid, entityId, page, paperTrailEnabled, get]);
+  }, [loaded, uid, entityId, page, paperTrailEnabled, get, pageSize]);
 
   /**
    * event listener for submit button
@@ -190,11 +238,143 @@ function PaperTrail() {
     setPage(newPage);
     setLoaded(false);
   }, []);
+  
+  // Effect to refresh data when modal is opened
+  useEffect(() => {
+    if (modalVisible && paperTrailEnabled && entityId) {
+      console.log('[Paper Trail DEBUG] Modal visible, refreshing data');
+      setLoaded(false);
+    }
+  }, [modalVisible, paperTrailEnabled, entityId]);
 
   /**
    * Use MutationObserver instead of direct DOM manipulation
    * This is a more React-friendly approach for Strapi V5
    */
+
+  // Function to manually open trails modal - will be exposed to window.strapi.paperTrail.openTrailsModal
+  const manualOpenTrailsModal = useCallback((contentTypeParam, entityIdParam) => {
+    try {
+      console.log('[Paper Trail] Manual open trails modal called', { contentTypeParam, entityIdParam });
+      
+      // We can use the existing context if no params are provided
+      const useNewParams = !!(contentTypeParam && entityIdParam);
+      
+      // Force enable Paper Trail temporarily for the modal view
+      if (!paperTrailEnabled) {
+        console.log('[Paper Trail DEBUG] Temporarily enabling Paper Trail for modal view');
+        setPaperTrailEnabled(true);
+      }
+      
+      // Set up loading
+      const fetchTrailsData = async () => {
+        try {
+          const tmpPage = 1;
+          const effectiveContentType = useNewParams ? contentTypeParam : uid;
+          const effectiveEntityId = useNewParams ? entityIdParam : entityId;
+          
+          console.log('[Paper Trail DEBUG] Fetching trails for', { 
+            contentType: effectiveContentType, 
+            entityId: effectiveEntityId,
+            useNewParams
+          });
+          
+          if (!effectiveContentType || !effectiveEntityId) {
+            console.error('[Paper Trail DEBUG] Missing content type or entity ID');
+            return;
+          }
+          
+          // Use the get client to fetch trails - try both formats
+          const apiEndpoint = `/paper-trail/trails?contentType=${encodeURIComponent(effectiveContentType)}&entityId=${effectiveEntityId}&sort=version:DESC`;
+          console.log('[Paper Trail DEBUG] Fetching from endpoint:', apiEndpoint);
+          
+          let result;
+          try {
+            result = await get(apiEndpoint);
+          } catch (apiError) {
+            console.error('[Paper Trail DEBUG] Error with primary endpoint:', apiError);
+            
+            // Try legacy endpoint as fallback
+            const legacyEndpoint = `/api/paper-trail/trails?contentType=${encodeURIComponent(effectiveContentType)}&entityId=${effectiveEntityId}&sort=version:DESC`;
+            console.log('[Paper Trail DEBUG] Trying legacy endpoint:', legacyEndpoint);
+            
+            try {
+              result = await get(legacyEndpoint);
+            } catch (legacyError) {
+              console.error('[Paper Trail DEBUG] Error with legacy endpoint:', legacyError);
+              return;
+            }
+          }
+          
+          // Process the result
+          let results = Array.isArray(result) ? result : [];
+          console.log('[Paper Trail DEBUG] Fetched trails:', results);
+          
+          let pagination = { 
+            total: results.length,
+            pageCount: Math.ceil(results.length / pageSize) || 1
+          };
+          
+          setTotal(pagination.total);
+          setPageCount(pagination.pageCount);
+          setTrails(results);
+          
+          // Set the latest version as current
+          if (results.length > 0) {
+            // Sort by version in descending order
+            const sortedResults = [...results].sort((a, b) => 
+              (b.version || 0) - (a.version || 0)
+            );
+            setCurrent(sortedResults[0]);
+          }
+          
+          setLoaded(true);
+          setInitialLoad(true);
+          
+          // Always show the modal
+          setModalVisible(true);
+        } catch (error) {
+          console.error('[Paper Trail DEBUG] Error in fetchTrailsData:', error);
+          setError(error);
+          
+          // Still try to show modal with error state
+          setLoaded(true);
+          setInitialLoad(true);
+          setModalVisible(true);
+        }
+      };
+      
+      // Start fetch
+      fetchTrailsData();
+      
+    } catch (error) {
+      console.error('[Paper Trail DEBUG] Error in manualOpenTrailsModal:', error);
+    }
+  }, [uid, entityId, paperTrailEnabled, pageSize, get, setLoaded, setInitialLoad, setModalVisible, setError, setTrails, setTotal, setPageCount, setCurrent, setPaperTrailEnabled]);
+
+  // Expose function to window for external access
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      // Initialize the paper trail namespace if it doesn't exist
+      if (!window.strapi) {
+        window.strapi = {};
+      }
+      
+      if (!window.strapi.paperTrail) {
+        window.strapi.paperTrail = {};
+      }
+      
+      // Expose the function
+      window.strapi.paperTrail.openTrailsModal = manualOpenTrailsModal;
+      
+      return () => {
+        // Clean up when component unmounts
+        if (window.strapi?.paperTrail) {
+          delete window.strapi.paperTrail.openTrailsModal;
+        }
+      };
+    }
+  }, [manualOpenTrailsModal]);
 
   useEffect(() => {
     // Create a MutationObserver to watch for changes in the DOM
@@ -240,12 +420,13 @@ function PaperTrail() {
     };
   }, [handler]);
 
-  if (!paperTrailEnabled) {
-    console.log('[Paper Trail DEBUG] Paper Trail not enabled for this content type, not rendering');
+  // Only skip rendering if not enabled AND not showing modal
+  if (!paperTrailEnabled && !modalVisible) {
+    console.log('[Paper Trail DEBUG] Paper Trail not enabled for this content type and modal not visible, not rendering');
     return <Fragment />;
   }
   
-  console.log('[Paper Trail DEBUG] Paper Trail enabled, rendering component');
+  console.log('[Paper Trail DEBUG] Paper Trail enabled or modal visible, rendering component', { paperTrailEnabled, modalVisible });
 
   // TODO: Add diff comparison
   // TODO: Add up/down for changing UIDs and enabling/disabling plugin
@@ -264,7 +445,10 @@ function PaperTrail() {
         paddingTop={6}
         shadow="tableShadow"
         marginTop={5} // Add margin for consistent spacing
-        style={{ backgroundColor: 'white' }} // Explicitly set white background
+        style={{ 
+          backgroundColor: 'white', // Explicitly set white background
+          zIndex: 1 // Ensure proper stacking
+        }}
       >
         <Typography
           variant="sigma"
@@ -323,7 +507,13 @@ function PaperTrail() {
                   </Typography>
                 </p>
                 <Box paddingTop={4}>
-                  <Button onClick={() => setModalVisible(!modalVisible)}>
+                  <Button 
+                    onClick={() => {
+                      console.log('[Paper Trail DEBUG] View all button clicked, showing modal');
+                      setModalVisible(true);
+                    }}
+                    style={{ zIndex: 1 }}
+                  >
                     {formatMessage({
                       id: getTrad('plugin.admin.paperTrail.viewAll'),
                       defaultMessage: 'View all'

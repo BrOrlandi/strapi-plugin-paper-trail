@@ -121,7 +121,11 @@ function PaperTrailViewer(props) {
   return (
     <Fragment>
       {visible && (
-        <Modal.Root onClose={() => handleClose()} labelledBy="title">
+        <Modal.Root 
+          onClose={() => handleClose()} 
+          labelledBy="title" 
+          style={{ zIndex: 1000 }} // Higher z-index to ensure it's above other elements
+        >
           <Modal.Header>
             <Typography
               fontWeight="bold"
@@ -135,7 +139,7 @@ function PaperTrailViewer(props) {
               })}
             </Typography>
           </Modal.Header>
-          <Modal.Content>
+          <Modal.Content style={{ minHeight: '300px', maxHeight: '70vh', overflow: 'auto', width: '100%' }}>
             {!viewRevision && (
               <TrailTable
                 trails={trails}
@@ -200,6 +204,7 @@ function PaperTrailViewer(props) {
                 })}
               </Button>
             }
+            style={{ backgroundColor: 'white', borderTop: '1px solid #eaeaef' }}
             endActions={
               <Fragment>
                 {!showReviewStep &&

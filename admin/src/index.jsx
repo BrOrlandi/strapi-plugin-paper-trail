@@ -224,30 +224,10 @@ export default {
       const contentManager = app.getPlugin('content-manager');
       console.log('[Paper Trail DEBUG] Content Manager plugin:', contentManager ? 'Found' : 'Not found');
       
-      if (contentManager && injectionZones.admin) {
-        console.log('[Paper Trail DEBUG] injectionZones.admin:', Object.keys(injectionZones.admin));
-        
-        Object.entries(injectionZones.admin).forEach(([zone, components]) => {
-          console.log(`[Paper Trail DEBUG] Processing zone: ${zone} with ${components.length} components`);
-          
-          // Extract parts from zone name (format: 'content-manager.editView.right-links')
-          const parts = zone.split('.');
-          if (parts.length >= 3) {
-            const viewPart = parts[1]; // e.g. 'editView'
-            const zonePart = parts[2]; // e.g. 'right-links'
-            console.log(`[Paper Trail DEBUG] Extracted parts - viewPart: ${viewPart}, zonePart: ${zonePart}`);
-            
-            if (Array.isArray(components)) {
-              components.forEach((componentFn) => {
-                // Get the component to inject
-                const component = componentFn();
-                console.log('[Paper Trail DEBUG] Component to inject:', component);
-                contentManager.injectComponent(viewPart, zonePart, component);
-                console.log(`[Paper Trail DEBUG] Injected component into ${viewPart}.${zonePart}`);
-              });
-            }
-          }
-        });
+      // Disable the injectionZones approach since we're using the direct injection
+      // This prevents duplicate panels
+      if (false && contentManager && injectionZones.admin) {
+        console.log('[Paper Trail DEBUG] injectionZones.admin SKIPPED to prevent duplicate panels');
       }
       
       // Alternative direct injection method
