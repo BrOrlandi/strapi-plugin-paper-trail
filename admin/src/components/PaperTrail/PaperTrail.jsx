@@ -10,6 +10,7 @@ import React, { Fragment, useCallback, useEffect, useState } from 'react';
 import { useIntl } from 'react-intl';
 import { useParams } from 'react-router-dom';
 import { useContentManagerContext, useFetchClient } from '../../utils/hooks';
+import { checkPluginStatus } from '../../utils/debugPlugin';
 
 import getTrad from '../../utils/getTrad';
 import getUser from '../../utils/getUser';
@@ -19,13 +20,22 @@ function PaperTrail() {
   /**
    * Get the current schema
    */
+  console.log('[Paper Trail DEBUG] PaperTrail component rendering');
+  
+  // Check plugin status
+  const pluginStatus = checkPluginStatus();
+  console.log('[Paper Trail DEBUG] Plugin status check:', pluginStatus);
+  
   const { model } = useContentManagerContext();
+  console.log('[Paper Trail DEBUG] Content Manager model:', model);
 
   const { uid, pluginOptions = {} } = model?.attributes ? model : { uid: '', pluginOptions: {} };
+  console.log('[Paper Trail DEBUG] UID:', uid, 'Paper Trail enabled:', pluginOptions?.paperTrail?.enabled);
 
   const { formatMessage } = useIntl();
   // params works for collection types but not single types
   const { id, collectionType } = useParams();
+  console.log('[Paper Trail DEBUG] Params:', { id, collectionType });
 
   const [entityId, setEntityId] = useState(id ? String(id) : undefined);
 
@@ -80,19 +90,55 @@ function PaperTrail() {
       const params = new URLSearchParams({
         page,
         pageSize,
-        sort: 'version:DESC',
+        sort: 'version:DESC', // Ensure descending sort to get latest version first
         'filters[$and][0][contentType][$eq]': uid,
         'filters[$and][1][entityId][$eq]': entityId
       }).toString();
 
-      const requestUri = `/content-manager/collection-types/plugin::paper-trail.trail?${params}`;
+      // Try both our custom API endpoint and the content-manager endpoint
+      // Use the correct path format for Strapi V5
+      const apiEndpoint = `/paper-trail/trails?contentType=${encodeURIComponent(uid)}&entityId=${entityId}`;
+      const legacyApiEndpoint = `/api/paper-trail/trails?contentType=${encodeURIComponent(uid)}&entityId=${entityId}`;
+      const cmEndpoint = `/content-manager/collection-types/plugin::paper-trail.trail?${params}`;
 
       try {
-        const result = await get(requestUri);
+        // First try our custom API endpoint with correct Strapi V5 path
+        let result;
+        let useCustomApi = true;
+        
+        try {
+          result = await get(apiEndpoint);
+          console.log('[Paper Trail DEBUG] Custom API endpoint successful');
+        } catch (apiError) {
+          console.log('[Paper Trail DEBUG] Custom API failed, trying legacy endpoint:', apiError);
+          try {
+            // Try the legacy path format as a fallback
+            result = await get(legacyApiEndpoint);
+            console.log('[Paper Trail DEBUG] Legacy API endpoint successful');
+          } catch (legacyError) {
+            console.log('[Paper Trail DEBUG] Legacy API failed, trying content-manager endpoint:', legacyError);
+            useCustomApi = false;
+            result = await get(cmEndpoint);
+          }
+        }
 
-        const { data = {} } = result;
-
-        const { results = [], pagination } = data;
+        // Parse the result based on which endpoint succeeded
+        let results = [];
+        let pagination = { total: 0, pageCount: 1 };
+        
+        if (useCustomApi) {
+          // Direct array from our custom API
+          results = Array.isArray(result) ? result : [];
+          pagination = { 
+            total: results.length,
+            pageCount: Math.ceil(results.length / pageSize) || 1
+          };
+        } else {
+          // Standard content-manager format
+          const { data = {} } = result;
+          results = data.results || [];
+          pagination = data.pagination || { total: 0, pageCount: 1 };
+        }
 
         const { total, pageCount } = pagination;
 
@@ -100,8 +146,14 @@ function PaperTrail() {
         setPageCount(pageCount);
         setTrails(results);
 
+        // Make sure we get the latest version (highest version number) as the current one
         if (page === 1 && total > 0) {
-          setCurrent(results[0]);
+          // Sort by version in descending order to make sure we get the latest
+          const sortedResults = [...results].sort((a, b) => 
+            (b.version || 0) - (a.version || 0)
+          );
+          setCurrent(sortedResults[0]);
+          console.log('[Paper Trail DEBUG] Set current version to:', sortedResults[0]);
         }
 
         setLoaded(true);
@@ -189,8 +241,11 @@ function PaperTrail() {
   }, [handler]);
 
   if (!paperTrailEnabled) {
+    console.log('[Paper Trail DEBUG] Paper Trail not enabled for this content type, not rendering');
     return <Fragment />;
   }
+  
+  console.log('[Paper Trail DEBUG] Paper Trail enabled, rendering component');
 
   // TODO: Add diff comparison
   // TODO: Add up/down for changing UIDs and enabling/disabling plugin
@@ -208,6 +263,8 @@ function PaperTrail() {
         paddingRight={4}
         paddingTop={6}
         shadow="tableShadow"
+        marginTop={5} // Add margin for consistent spacing
+        style={{ backgroundColor: 'white' }} // Explicitly set white background
       >
         <Typography
           variant="sigma"
@@ -240,14 +297,14 @@ function PaperTrail() {
                       id: getTrad('plugin.admin.paperTrail.currentVersion'),
                       defaultMessage: 'Current version:'
                     })}{' '}
-                    {total}
+                    {current.version || total}
                   </Typography>
                 </p>
                 <p>
                   <Typography variant="pi" fontWeight="bold" color="Neutral600">
                     {formatMessage({
                       id: getTrad('plugin.admin.paperTrail.created'),
-                      defaultMessage: 'Created:'
+                      defaultMessage: 'Last Updated:'
                     })}{' '}
                   </Typography>
                   <Typography variant="pi" color="Neutral600">
@@ -258,7 +315,7 @@ function PaperTrail() {
                   <Typography variant="pi" fontWeight="bold" color="Neutral600">
                     {formatMessage({
                       id: getTrad('plugin.admin.paperTrail.createdBy'),
-                      defaultMessage: 'Created by:'
+                      defaultMessage: 'Updated by:'
                     })}{' '}
                   </Typography>
                   <Typography variant="pi" color="Neutral600">

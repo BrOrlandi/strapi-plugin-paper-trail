@@ -5,6 +5,8 @@ const config = require('./config');
 const contentTypes = require('./content-types');
 const middlewares = require('./middlewares');
 const services = require('./services');
+const controllers = require('./controllers');
+const routes = require('./routes');
 
 module.exports = {
   register,
@@ -13,5 +15,7 @@ module.exports = {
   config,
   services,
   contentTypes,
-  middlewares
+  middlewares,
+  controllers,
+  routes
 };

@@ -6,7 +6,12 @@ import pluginId from './pluginId';
 import getTrad from './utils/getTrad';
 import * as yup from 'yup';
 
-// Remove admin extension script import since we're not using it anymore
+// Import debug and injection utilities
+import { attachDebugFunctionsToWindow } from './utils/debugPlugin';
+import { attachV5DebugToWindow } from './utils/debugPluginV5';
+import { attachDirectInjectionToWindow } from './utils/directInjection';
+import { attachVanillaInjectionToWindow } from './utils/vanillaInjection';
+import { attachContentTypeHelperToWindow } from './utils/contentTypeHelper';
 
 // Custom implementation of prefixPluginTranslations
 const prefixPluginTranslations = (data, pluginId) => {
@@ -79,163 +84,266 @@ export default {
       // Silently handle errors
     }
 
-    // Remove the problematic app.registerHook, as it's causing an Invariant Violation
-    // and the Content-Type Builder should handle saving pluginOptions.
-    /*
-    try {
-      const cm = app.getPlugin('content-manager');
-      if (cm) {
-        console.log('Paper Trail: Attempting to register mutate hook for EditSettingsView');
-        app.registerHook('Admin/CM/pages/EditSettingsView/mutate', async ({
-          args,
-          getState,
-          setState
-        }) => {
-          console.log('Paper Trail: EditSettingsView mutate hook triggered', args);
-          const {
-            values: {
-              pluginOptions
-            }
-          } = args;
-          if (pluginOptions && pluginOptions.paperTrail && typeof pluginOptions.paperTrail.enabled === 'boolean') {
-            console.log('Paper Trail setting found in hook:', pluginOptions.paperTrail.enabled);
-            // The setting should be automatically saved by the CTB by this point
-            // We might not need to do anything explicit here if formsAPI.extendContentType works as expected
-          }
-          return args; // Continue with original mutation
-        });
-        console.log('Paper Trail: EditSettingsView mutate hook registered.');
-      } else {
-        console.warn('Paper Trail: Content Manager plugin not found for hook registration.');
-      }
-    } catch (e) {
-      console.error('Paper Trail: Failed to register EditSettingsView mutate hook:', e);
-    }
-    */
-
     // Register the settings page (if any)
     // Example: app.addSettingsLink('global', { ... });
   },
 
   bootstrap(app) {
+    // Attach debug functions to window for browser console debugging
+    attachDebugFunctionsToWindow();
+    attachV5DebugToWindow();
+    attachDirectInjectionToWindow();
+    attachVanillaInjectionToWindow();
+    attachContentTypeHelperToWindow();
+    
+    // Fetch the list of content types that have Paper Trail enabled
+    if (typeof window !== 'undefined') {
+      // Add function to fetch enabled content types
+      window.fetchPaperTrailEnabledContentTypes = async () => {
+        try {
+          console.log('[Paper Trail] Attempting to fetch enabled content types');
+          // Use the correct Strapi V5 path format
+          const apiEndpoint = '/paper-trail/enabled-content-types';
+          const legacyEndpoint = '/api/paper-trail/enabled-content-types';
+          console.log('[Paper Trail] Using endpoint:', apiEndpoint);
+          
+          // Try the correct V5 endpoint first
+          let response;
+          try {
+            response = await fetch(apiEndpoint);
+            console.log('[Paper Trail] Response status:', response.status);
+          } catch (error) {
+            console.log('[Paper Trail] Error with V5 endpoint, trying legacy endpoint:', error);
+            response = await fetch(legacyEndpoint);
+            console.log('[Paper Trail] Legacy response status:', response.status);
+          }
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('[Paper Trail] Received data:', data);
+            
+            if (data.contentTypes && Array.isArray(data.contentTypes)) {
+              window.paperTrailEnabledContentTypes = data.contentTypes;
+              console.log('[Paper Trail] Loaded enabled content types:', window.paperTrailEnabledContentTypes);
+              return data.contentTypes;
+            }
+          } else {
+            console.log('[Paper Trail] Error response from API:', await response.text());
+          }
+        } catch (error) {
+          console.error('[Paper Trail] Error fetching enabled content types:', error);
+        }
+        
+        // As a fallback, provide some default enabled content types
+        window.paperTrailEnabledContentTypes = ['api::product.product', 'api::category.category'];
+        console.log('[Paper Trail] Using fallback content types:', window.paperTrailEnabledContentTypes);
+        return window.paperTrailEnabledContentTypes;
+      };
+      
+      // Try to fetch it once when the plugin loads
+      window.fetchPaperTrailEnabledContentTypes();
+    
+      // Set up automatic injection after page loads
+      const setupAutoInjection = () => {
+        if (document.readyState === 'complete') {
+          // Set a timeout to allow Strapi to finish rendering
+          setTimeout(() => {
+            // Track current URL
+            let lastUrl = window.location.href;
+            console.log('[Paper Trail] Setting up URL change detection from:', lastUrl);
+            
+            // Try the direct DOM injection with retry mechanism
+            try {
+              // Try vanilla injection with retry for more reliability
+              if (window.injectPaperTrailWithRetry) {
+                window.injectPaperTrailWithRetry(5, 500); // 5 retries, 500ms interval
+              } else if (window.injectVanillaPaperTrail) {
+                window.injectVanillaPaperTrail();
+              } else if (window.findAndAddPaperTrailMessage) {
+                window.findAndAddPaperTrailMessage();
+              }
+            } catch (error) {
+              console.error('[Paper Trail] Auto-injection error:', error);
+            }
+            
+            // Set up observer to detect URL changes (for SPA navigation)
+            const observer = new MutationObserver(() => {
+              if (window.location.href !== lastUrl) {
+                console.log('[Paper Trail] URL changed from:', lastUrl, 'to:', window.location.href);
+                lastUrl = window.location.href;
+                
+                // Wait for content to load after navigation
+                setTimeout(() => {
+                  try {
+                    // Try vanilla injection with retry for more reliability
+                    if (window.injectPaperTrailWithRetry) {
+                      window.injectPaperTrailWithRetry(5, 500); // 5 retries, 500ms interval
+                    } else if (window.injectVanillaPaperTrail) {
+                      window.injectVanillaPaperTrail();
+                    } else if (window.findAndAddPaperTrailMessage) {
+                      window.findAndAddPaperTrailMessage();
+                    }
+                  } catch (error) {
+                    console.error('[Paper Trail] Navigation injection error:', error);
+                  }
+                }, 1000);
+              }
+            });
+            
+            // Start observing body for changes
+            observer.observe(document.body, { childList: true, subtree: true });
+          }, 2000); // Wait 2 seconds to ensure Strapi admin UI is fully loaded
+        } else {
+          // If not complete, listen for load event
+          window.addEventListener('load', () => {
+            setTimeout(() => {
+              try {
+                // Try vanilla injection with retry for more reliability
+                if (window.injectPaperTrailWithRetry) {
+                  window.injectPaperTrailWithRetry(5, 500); // 5 retries, 500ms interval
+                } else if (window.injectVanillaPaperTrail) {
+                  window.injectVanillaPaperTrail();
+                } else if (window.findAndAddPaperTrailMessage) {
+                  window.findAndAddPaperTrailMessage();
+                }
+              } catch (error) {
+                console.error('[Paper Trail] Load event injection error:', error);
+              }
+            }, 2000);
+          });
+        }
+      };
+      
+      // Run setup
+      setupAutoInjection();
+    }
+    
     // Register components in the injection zones for Strapi V5
     try {
+      console.log('[Paper Trail DEBUG] Starting bootstrap function');
       const contentManager = app.getPlugin('content-manager');
+      console.log('[Paper Trail DEBUG] Content Manager plugin:', contentManager ? 'Found' : 'Not found');
       
       if (contentManager && injectionZones.admin) {
+        console.log('[Paper Trail DEBUG] injectionZones.admin:', Object.keys(injectionZones.admin));
+        
         Object.entries(injectionZones.admin).forEach(([zone, components]) => {
-          // Extract parts from zone name (format: 'content-manager.editView.informations')
+          console.log(`[Paper Trail DEBUG] Processing zone: ${zone} with ${components.length} components`);
+          
+          // Extract parts from zone name (format: 'content-manager.editView.right-links')
           const parts = zone.split('.');
           if (parts.length >= 3) {
             const viewPart = parts[1]; // e.g. 'editView'
             const zonePart = parts[2]; // e.g. 'right-links'
+            console.log(`[Paper Trail DEBUG] Extracted parts - viewPart: ${viewPart}, zonePart: ${zonePart}`);
             
             if (Array.isArray(components)) {
               components.forEach((componentFn) => {
                 // Get the component to inject
                 const component = componentFn();
+                console.log('[Paper Trail DEBUG] Component to inject:', component);
                 contentManager.injectComponent(viewPart, zonePart, component);
+                console.log(`[Paper Trail DEBUG] Injected component into ${viewPart}.${zonePart}`);
               });
             }
           }
         });
+      }
+      
+      // Alternative direct injection method
+      try {
+        console.log('[Paper Trail DEBUG] Trying alternative direct component injection');
+        if (contentManager && typeof contentManager.injectComponent === 'function') {
+          // We'll set up an async function to check if Paper Trail is enabled
+          const setupPaperTrailComponent = async () => {
+            try {
+              // First check if Paper Trail is enabled for the current content type
+              if (window.paperTrailHelper) {
+                // Wait for the DOM to be fully loaded
+                setTimeout(async () => {
+                  const contentInfo = window.paperTrailHelper.extractContentTypeFromUrl();
+                  if (contentInfo?.contentType) {
+                    const isEnabled = await window.paperTrailHelper.isPaperTrailEnabled(contentInfo.contentType);
+                    
+                    if (isEnabled) {
+                      // Directly create the component to inject
+                      const paperTrailComponent = {
+                        name: 'paper-trail',
+                        Component: PaperTrail,
+                      };
+                      
+                      // Inject it manually
+                      contentManager.injectComponent('editView', 'right-links', paperTrailComponent);
+                      console.log('[Paper Trail DEBUG] Direct component injection successful');
+                    } else {
+                      console.log(`[Paper Trail DEBUG] Paper Trail not enabled for ${contentInfo.contentType}, skipping injection`);
+                    }
+                  }
+                }, 1000);
+              }
+            } catch (error) {
+              console.error('[Paper Trail DEBUG] Error in setupPaperTrailComponent:', error);
+            }
+          };
+          
+          // Start the async setup
+          setupPaperTrailComponent();
+          
+          // Define a force inject function that can be called from the console
+          const forceInjectFunction = async () => {
+            console.log('Force injecting Paper Trail component...');
+            try {
+              // First check if Paper Trail is enabled for the current content type
+              const contentInfo = window.paperTrailHelper?.extractContentTypeFromUrl();
+              if (!contentInfo?.contentType) {
+                console.log('No content type found in URL, skipping Paper Trail injection');
+                return false;
+              }
+              
+              const isEnabled = await window.paperTrailHelper?.isPaperTrailEnabled(contentInfo.contentType);
+              if (!isEnabled) {
+                console.log(`Paper Trail not enabled for ${contentInfo.contentType}, skipping component injection`);
+                return false;
+              }
+              
+              const strapiPlugins = window.strapi?.plugins || {};
+              const cm = strapiPlugins['content-manager'];
+              
+              if (cm && typeof cm.injectComponent === 'function') {
+                // Import the PaperTrail component
+                const injectedComponent = {
+                  name: 'paper-trail',
+                  Component: PaperTrail,
+                };
+                
+                cm.injectComponent('editView', 'right-links', injectedComponent);
+                console.log('Paper Trail component injected successfully!');
+                return true;
+              } else {
+                console.error('Content manager plugin not found or missing injectComponent');
+                return false;
+              }
+            } catch (err) {
+              console.error('Error injecting component:', err);
+              return false;
+            }
+          };
+          
+          // Expose the function to the window object if in browser
+          if (typeof window !== 'undefined') {
+            window.paperTrailForceInject = forceInjectFunction;
+          }
+        } else {
+          console.log('[Paper Trail DEBUG] Content manager injectComponent method not available');
+        }
+      } catch (injectionError) {
+        console.error('[Paper Trail DEBUG] Alternative injection error:', injectionError);
       }
     } catch (error) {
-      // Silently handle errors
+      console.error('[Paper Trail DEBUG] Error in bootstrap function:', error);
     }
-
-    // The formsAPI.extendContentType and the app.registerHook 
-    // for 'Admin/CM/pages/EditSettingsView/mutate' should not be in bootstrap.
-    // These were causing duplicate key warnings and/or using invalid hooks.
-    // Form extension is handled in the register() function.
-    /*
-    try {
-      console.log('Setting up Paper Trail form extension with type: \'bool\' (standard toggle)');
-      
-      const ctb = app.getPlugin('content-type-builder');
-      
-      if (ctb && ctb.apis && ctb.apis.forms) {
-        const formsAPI = ctb.apis.forms;
-        
-        formsAPI.extendContentType({
-          validator: () => ({
-            pluginOptions: {
-              paperTrail: {
-                enabled: yup.boolean()
-              }
-            }
-          }),
-          form: {
-            advanced() {
-              return [
-                {
-                  name: 'pluginOptions.paperTrail.enabled',
-                  description: {
-                    id: getTrad('plugin.schema.paperTrail.description-content-type'),
-                    defaultMessage: 'Enable Paper Trail auditing and content versioning for this content type'
-                  },
-                  type: 'bool', // Using standard boolean type
-                  intlLabel: {
-                    id: getTrad('plugin.schema.paperTrail.label-content-type'),
-                    defaultMessage: 'Paper Trail'
-                  }
-                }
-              ];
-            }
-          }
-        });
-        
-        console.log('Paper Trail: Form extension with type: \'bool\' registered successfully');
-        
-        // Register hook to save settings when the main Content-Type Builder form is submitted
-        app.registerHook('Admin/CM/pages/EditSettingsView/mutate', async ({ query, body }) => {
-          try {
-            const uid = query?.contentType;
-            // Ensure body and its nested properties exist before accessing them
-            const isPaperTrailEnabled = body && body.pluginOptions && body.pluginOptions.paperTrail && body.pluginOptions.paperTrail.enabled === true;
-            
-            if (uid) {
-              console.log(`Paper Trail CTB hook: Saving setting for ${uid} - Enabled: ${isPaperTrailEnabled}`);
-              
-              const response = await fetch('/paper-trail/settings', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                  uid,
-                  enabled: isPaperTrailEnabled,
-                }),
-              });
-              
-              if (!response.ok) {
-                console.error('Failed to save Paper Trail settings via CTB hook', await response.text());
-              }
-            }
-          } catch (error) {
-            console.error('Error in Paper Trail CTB settings hook:', error);
-          }
-        });
-        console.log('Paper Trail: Settings save hook for CTB registered.');
-
-      } else {
-        console.warn('Content-type-builder plugin or forms API not found for type: \'bool\' registration');
-      }
-    } catch (err) {
-      console.error('Paper Trail form extension (type: \'bool\') failed:', err);
-    }
-    */
-
-    // app.registerHook(
-    //   "Admin/CM/pages/ListView/inject-column-in-table",
-    //   injectionZones.listViewColumnHook
-    // );
-    // app.registerHook(
-    //   "Admin/CM/pages/EditView/inject-column-in-table",
-    //   injectionZones.editViewColumnHook
-    // );
-
   },
+  
   async registerTrads({ locales }) {
     const importedTrads = await Promise.all(
       locales.map(locale => {

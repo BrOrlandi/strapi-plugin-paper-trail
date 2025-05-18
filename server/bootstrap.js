@@ -5,6 +5,12 @@ module.exports = ({ strapi }) => {
   // Initialize a registry to track which content types have Paper Trail enabled
   global.paperTrailContentTypes = global.paperTrailContentTypes || new Set();
   global.paperTrailAttachedHooks = global.paperTrailAttachedHooks || new Set(); // Keep track of attached hooks
+  
+  // Debug: Log the enabled content types for troubleshooting
+  console.log('[Paper Trail] Bootstrap: Enabled content types:', 
+    global.paperTrailContentTypes.size > 0 ? 
+    Array.from(global.paperTrailContentTypes) : 
+    'None yet');
 
   // Load the initial configuration after the server is ready
   if (strapi.server && strapi.server.httpServer) {
@@ -128,9 +134,15 @@ function loadPaperTrailConfiguration(strapi) {
       }
     });
 
+    // Log the enabled content types after loading the configuration
+    console.log('[Paper Trail] Configuration loaded: Enabled content types:', 
+      global.paperTrailContentTypes.size > 0 ? 
+      Array.from(global.paperTrailContentTypes) : 
+      'None');
+      
     // Paper Trail configured for content types
   } catch (error) {
-    // Error loading Paper Trail configuration
+    console.error('[Paper Trail] Error loading Paper Trail configuration:', error);
   }
 }
 
