@@ -123,26 +123,166 @@ const getUserDisplayName = (trail = {}) => {
     }
     return `${users_permissions_user.email || 'User'} (User)`;
   }
-  
+
   return 'Unknown';
 };
 
 // Function to create a fallback modal to display version history
 const createVanillaModal = async (contentType, entityId) => {
   try {
-    console.log('[Paper Trail] Creating vanilla modal for', { contentType, entityId });
-    
+    console.log('[Paper Trail] Creating vanilla modal for', {
+      contentType,
+      entityId
+    });
+
     // First, fetch the trails data
     const trails = await fetchAllTrails(contentType, entityId);
-    
+
     if (!trails || trails.length === 0) {
       console.log('[Paper Trail] No trails found, showing message');
       alert('No version history found for this content.');
       return;
     }
-    
+
     console.log('[Paper Trail] Trails data:', trails);
     
+    // Add global styles for the modal
+    const styleId = 'paper-trail-modal-styles';
+    if (!document.getElementById(styleId)) {
+      const modalStyles = document.createElement('style');
+      modalStyles.id = styleId;
+      modalStyles.textContent = `
+        .paper-trail-modal * {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+        }
+        .paper-trail-modal {
+          font-size: 16px;
+        }
+        .paper-trail-modal h2 {
+          font-size: 24px !important;
+          font-weight: bold;
+          margin: 0;
+          color: #32324d;
+        }
+        .paper-trail-modal h3 {
+          font-size: 20px !important;
+          font-weight: bold;
+          margin-bottom: 12px;
+          color: #32324d;
+        }
+        .paper-trail-modal h4 {
+          font-size: 18px !important;
+          font-weight: bold;
+          margin: 0 0 10px 0;
+          color: #32324d;
+        }
+        .paper-trail-modal p {
+          font-size: 16px !important;
+          margin: 0 0 12px 0;
+          line-height: 1.5;
+        }
+        .paper-trail-modal th {
+          font-size: 16px !important;
+          padding: 12px 16px;
+          text-align: left;
+          font-weight: 500;
+          color: #666687;
+          background-color: #f6f6f9;
+          border-bottom: 1px solid #eaeaef;
+        }
+        .paper-trail-modal td {
+          font-size: 16px !important;
+          padding: 16px;
+          color: #32324d;
+          border-bottom: 1px solid #eaeaef;
+        }
+        .paper-trail-modal button {
+          font-size: 16px !important;
+          cursor: pointer;
+          padding: 10px 20px;
+          border-radius: 4px;
+          font-weight: 600;
+        }
+        .paper-trail-modal pre {
+          font-size: 16px !important;
+          line-height: 1.5;
+        }
+        .paper-trail-modal ul {
+          font-size: 16px;
+        }
+        .paper-trail-modal li {
+          margin-bottom: 12px;
+          font-size: 16px;
+        }
+        .paper-trail-btn-primary {
+          background-color: #4945ff;
+          color: white;
+          border: none;
+          transition: background-color 0.2s;
+        }
+        .paper-trail-btn-primary:hover {
+          background-color: #3f3ccc;
+        }
+        .paper-trail-btn-secondary {
+          background-color: white;
+          color: #4945ff;
+          border: 1px solid #dcdce4;
+          transition: background-color 0.2s;
+        }
+        .paper-trail-btn-secondary:hover {
+          background-color: #f6f6f9;
+        }
+        .paper-trail-btn-danger {
+          background-color: #ee5e52;
+          color: white;
+          border: none;
+          transition: background-color 0.2s;
+        }
+        .paper-trail-btn-danger:hover {
+          background-color: #b72b1a;
+        }
+        .paper-trail-field-checkbox {
+          margin: 8px 16px 8px 0;
+          width: 18px;
+          height: 18px;
+        }
+        .paper-trail-field-row {
+          display: flex;
+          align-items: center;
+          margin-bottom: 10px;
+          padding: 5px 0;
+        }
+        .paper-trail-field-label {
+          font-size: 16px;
+          color: #32324d;
+        }
+        .paper-trail-review-header {
+          font-size: 18px;
+          font-weight: bold;
+          color: #32324d;
+          margin: 16px 0 8px 0;
+        }
+        .paper-trail-review-list {
+          background-color: #f6f6f9;
+          border-radius: 4px;
+          padding: 16px;
+          margin-bottom: 20px;
+        }
+        .paper-trail-restore-warning {
+          color: #b72b1a;
+          font-weight: bold;
+          margin-bottom: 20px;
+          background-color: #fee2e2;
+          padding: 12px 16px;
+          border-radius: 4px;
+          border-left: 4px solid #b72b1a;
+          font-size: 16px;
+          line-height: 1.5;
+        }
+      `;
+      document.head.appendChild(modalStyles);
+    }
+
     // Create modal container
     const modalOverlay = document.createElement('div');
     modalOverlay.style.position = 'fixed';
@@ -155,19 +295,20 @@ const createVanillaModal = async (contentType, entityId) => {
     modalOverlay.style.justifyContent = 'center';
     modalOverlay.style.alignItems = 'center';
     modalOverlay.style.zIndex = 10000;
-    
+
     // Create modal content
     const modalContent = document.createElement('div');
+    modalContent.className = 'paper-trail-modal';
     modalContent.style.backgroundColor = 'white';
     modalContent.style.borderRadius = '4px';
     modalContent.style.boxShadow = '0 2px 20px rgba(0, 0, 0, 0.2)';
-    modalContent.style.width = '80%';
-    modalContent.style.maxWidth = '800px';
-    modalContent.style.maxHeight = '80vh';
+    modalContent.style.width = '90%';
+    modalContent.style.maxWidth = '900px';
+    modalContent.style.maxHeight = '85vh';
     modalContent.style.overflow = 'hidden';
     modalContent.style.display = 'flex';
     modalContent.style.flexDirection = 'column';
-    
+
     // Create modal header
     const modalHeader = document.createElement('div');
     modalHeader.style.padding = '16px 24px';
@@ -175,14 +316,14 @@ const createVanillaModal = async (contentType, entityId) => {
     modalHeader.style.display = 'flex';
     modalHeader.style.justifyContent = 'space-between';
     modalHeader.style.alignItems = 'center';
-    
+
     const modalTitle = document.createElement('h2');
     modalTitle.textContent = 'Revision History';
     modalTitle.style.margin = 0;
     modalTitle.style.fontSize = '1.2rem';
     modalTitle.style.fontWeight = 'bold';
     modalTitle.style.color = '#32324d';
-    
+
     const closeButton = document.createElement('button');
     closeButton.innerHTML = '&times;';
     closeButton.style.background = 'none';
@@ -193,29 +334,35 @@ const createVanillaModal = async (contentType, entityId) => {
     closeButton.onclick = () => {
       document.body.removeChild(modalOverlay);
     };
-    
+
     modalHeader.appendChild(modalTitle);
     modalHeader.appendChild(closeButton);
-    
+
     // Create modal body
     const modalBody = document.createElement('div');
     modalBody.style.padding = '24px';
     modalBody.style.overflowY = 'auto';
     modalBody.style.maxHeight = 'calc(80vh - 130px)';
-    
+
     // Create table
     const table = document.createElement('table');
     table.style.width = '100%';
     table.style.borderCollapse = 'collapse';
-    
+
     // Create table header
     const tableHeader = document.createElement('thead');
     tableHeader.style.backgroundColor = '#f6f6f9';
     tableHeader.style.borderBottom = '1px solid #eaeaef';
-    
+
     const headerRow = document.createElement('tr');
-    
-    const headers = ['Version', 'Change Type', 'Created', 'Created By', 'Actions'];
+
+    const headers = [
+      'Version',
+      'Change Type',
+      'Created',
+      'Created By',
+      'Actions'
+    ];
     headers.forEach(headerText => {
       const th = document.createElement('th');
       th.textContent = headerText;
@@ -226,51 +373,54 @@ const createVanillaModal = async (contentType, entityId) => {
       th.style.color = '#666687';
       headerRow.appendChild(th);
     });
-    
+
     tableHeader.appendChild(headerRow);
     table.appendChild(tableHeader);
-    
+
     // Create table body
     const tableBody = document.createElement('tbody');
-    
+
     // Sort trails by version in descending order
-    const sortedTrails = [...trails].sort((a, b) => (b.version || 0) - (a.version || 0));
-    
+    const sortedTrails = [...trails].sort(
+      (a, b) => (b.version || 0) - (a.version || 0)
+    );
+
     sortedTrails.forEach(trail => {
       const row = document.createElement('tr');
       row.style.borderBottom = '1px solid #eaeaef';
-      
+
       // Version column
       const versionCell = document.createElement('td');
       versionCell.textContent = trail.version;
       versionCell.style.padding = '16px';
       versionCell.style.color = '#32324d';
-      
+
       // Change type column
       const changeTypeCell = document.createElement('td');
       changeTypeCell.textContent = trail.change || 'unknown';
       changeTypeCell.style.padding = '16px';
       changeTypeCell.style.color = '#32324d';
       changeTypeCell.style.textTransform = 'capitalize';
-      
+
       // Created column
       const createdCell = document.createElement('td');
       createdCell.textContent = formatDate(trail.createdAt);
       createdCell.style.padding = '16px';
       createdCell.style.color = '#32324d';
-      
+
       // Created by column
       const createdByCell = document.createElement('td');
       createdByCell.textContent = getUserDisplayName(trail);
       createdByCell.style.padding = '16px';
       createdByCell.style.color = '#32324d';
-      
+
       // Actions column
       const actionsCell = document.createElement('td');
       actionsCell.style.padding = '16px';
-      
+
       const viewButton = document.createElement('button');
-      viewButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="#4945ff"><path d="M12 3c5.392 0 9.878 3.88 10.819 9-.94 5.12-5.427 9-10.819 9-5.392 0-9.878-3.88-10.819-9C2.121 6.88 6.608 3 12 3zm0 16c4.411 0 8.313-3.12 9.187-7.122C20.313 7.875 16.411 4.756 12 4.756c-4.411 0-8.313 3.12-9.187 7.122.874 4.003 4.776 7.122 9.187 7.122zm0-14a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 9.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg>';
+      viewButton.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="#4945ff"><path d="M12 3c5.392 0 9.878 3.88 10.819 9-.94 5.12-5.427 9-10.819 9-5.392 0-9.878-3.88-10.819-9C2.121 6.88 6.608 3 12 3zm0 16c4.411 0 8.313-3.12 9.187-7.122C20.313 7.875 16.411 4.756 12 4.756c-4.411 0-8.313 3.12-9.187 7.122.874 4.003 4.776 7.122 9.187 7.122zm0-14a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0 9.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg>';
       viewButton.style.background = 'none';
       viewButton.style.border = 'none';
       viewButton.style.cursor = 'pointer';
@@ -278,29 +428,29 @@ const createVanillaModal = async (contentType, entityId) => {
       viewButton.onclick = () => {
         showTrailDetail(trail);
       };
-      
+
       actionsCell.appendChild(viewButton);
-      
+
       // Add all cells to the row
       row.appendChild(versionCell);
       row.appendChild(changeTypeCell);
       row.appendChild(createdCell);
       row.appendChild(createdByCell);
       row.appendChild(actionsCell);
-      
+
       tableBody.appendChild(row);
     });
-    
+
     table.appendChild(tableBody);
     modalBody.appendChild(table);
-    
+
     // Create modal footer
     const modalFooter = document.createElement('div');
     modalFooter.style.padding = '16px 24px';
     modalFooter.style.borderTop = '1px solid #eaeaef';
     modalFooter.style.display = 'flex';
     modalFooter.style.justifyContent = 'flex-end';
-    
+
     const closeFooterButton = document.createElement('button');
     closeFooterButton.textContent = 'Close';
     closeFooterButton.style.backgroundColor = 'white';
@@ -313,18 +463,17 @@ const createVanillaModal = async (contentType, entityId) => {
     closeFooterButton.onclick = () => {
       document.body.removeChild(modalOverlay);
     };
-    
+
     modalFooter.appendChild(closeFooterButton);
-    
+
     // Assemble modal
     modalContent.appendChild(modalHeader);
     modalContent.appendChild(modalBody);
     modalContent.appendChild(modalFooter);
     modalOverlay.appendChild(modalContent);
-    
+
     // Add modal to the DOM
     document.body.appendChild(modalOverlay);
-    
   } catch (error) {
     console.error('[Paper Trail] Error creating vanilla modal:', error);
     alert('Error loading version history. Please try again.');
@@ -336,51 +485,60 @@ const fetchAllTrails = async (contentType, entityId) => {
   // Try multiple possible API endpoints with correct sorting
   const apiEndpoint = `/paper-trail/trails?contentType=${encodeURIComponent(contentType)}&entityId=${entityId}&sort=version:DESC`;
   const legacyEndpoint = `/api/paper-trail/trails?contentType=${encodeURIComponent(contentType)}&entityId=${entityId}&sort=version:DESC`;
-  
+
   let trails = [];
-  
+
   // Try the Strapi V5 endpoint first
   try {
     console.log('[Paper Trail] Fetching trails from:', apiEndpoint);
     const response = await fetch(apiEndpoint);
-    
+
     if (response.ok) {
       const data = await response.json();
       console.log('[Paper Trail] Trail data from V5 endpoint:', data);
-      
+
       if (Array.isArray(data)) {
         trails = data;
       }
     }
   } catch (apiError) {
     console.log('[Paper Trail] Error fetching from V5 endpoint:', apiError);
-    
+
     // Try the legacy endpoint
     try {
       console.log('[Paper Trail] Trying legacy endpoint:', legacyEndpoint);
       const legacyResponse = await fetch(legacyEndpoint);
-      
+
       if (legacyResponse.ok) {
         const legacyData = await legacyResponse.json();
-        console.log('[Paper Trail] Trail data from legacy endpoint:', legacyData);
-        
+        console.log(
+          '[Paper Trail] Trail data from legacy endpoint:',
+          legacyData
+        );
+
         if (Array.isArray(legacyData)) {
           trails = legacyData;
         }
       }
     } catch (legacyError) {
-      console.log('[Paper Trail] Error fetching from legacy endpoint:', legacyError);
+      console.log(
+        '[Paper Trail] Error fetching from legacy endpoint:',
+        legacyError
+      );
     }
   }
-  
+
   return trails;
 };
 
 // Function to show details of a specific trail version
-const showTrailDetail = (trail) => {
+const showTrailDetail = async trail => {
   try {
+    console.log('[Paper Trail] Showing trail detail for version:', trail.version);
+
     // Create a new modal to show the trail details
     const detailModalOverlay = document.createElement('div');
+    detailModalOverlay.className = 'paper-trail-modal-overlay';
     detailModalOverlay.style.position = 'fixed';
     detailModalOverlay.style.top = 0;
     detailModalOverlay.style.left = 0;
@@ -391,9 +549,10 @@ const showTrailDetail = (trail) => {
     detailModalOverlay.style.justifyContent = 'center';
     detailModalOverlay.style.alignItems = 'center';
     detailModalOverlay.style.zIndex = 10001; // Higher than the list modal
-    
+
     // Create modal content
     const detailModalContent = document.createElement('div');
+    detailModalContent.className = 'paper-trail-modal';
     detailModalContent.style.backgroundColor = 'white';
     detailModalContent.style.borderRadius = '4px';
     detailModalContent.style.boxShadow = '0 2px 20px rgba(0, 0, 0, 0.2)';
@@ -403,7 +562,7 @@ const showTrailDetail = (trail) => {
     detailModalContent.style.overflow = 'hidden';
     detailModalContent.style.display = 'flex';
     detailModalContent.style.flexDirection = 'column';
-    
+
     // Create modal header
     const detailModalHeader = document.createElement('div');
     detailModalHeader.style.padding = '16px 24px';
@@ -411,53 +570,53 @@ const showTrailDetail = (trail) => {
     detailModalHeader.style.display = 'flex';
     detailModalHeader.style.justifyContent = 'space-between';
     detailModalHeader.style.alignItems = 'center';
-    
+
     const detailModalTitle = document.createElement('h2');
     detailModalTitle.textContent = `Version ${trail.version} Details`;
     detailModalTitle.style.margin = 0;
-    detailModalTitle.style.fontSize = '1.2rem';
+    detailModalTitle.style.fontSize = '20px'; // Increased font size from 1.2rem
     detailModalTitle.style.fontWeight = 'bold';
     detailModalTitle.style.color = '#32324d';
-    
+
     const detailCloseButton = document.createElement('button');
     detailCloseButton.innerHTML = '&times;';
     detailCloseButton.style.background = 'none';
     detailCloseButton.style.border = 'none';
-    detailCloseButton.style.fontSize = '1.5rem';
+    detailCloseButton.style.fontSize = '24px'; // Increased from 1.5rem
     detailCloseButton.style.cursor = 'pointer';
     detailCloseButton.style.color = '#666687';
     detailCloseButton.onclick = () => {
       document.body.removeChild(detailModalOverlay);
     };
-    
+
     detailModalHeader.appendChild(detailModalTitle);
     detailModalHeader.appendChild(detailCloseButton);
-    
+
     // Create modal body
     const detailModalBody = document.createElement('div');
     detailModalBody.style.padding = '24px';
     detailModalBody.style.overflowY = 'auto';
     detailModalBody.style.maxHeight = 'calc(80vh - 130px)';
-    
+
     // Create the content details
     const contentDetails = document.createElement('div');
-    
+
     // Version info
     const versionInfo = document.createElement('div');
-    versionInfo.style.marginBottom = '16px';
-    
+    versionInfo.style.marginBottom = '24px'; // Increased from 16px
+
     const versionTitle = document.createElement('h3');
     versionTitle.textContent = 'Version Information';
-    versionTitle.style.fontSize = '1rem';
+    versionTitle.style.fontSize = '18px'; // Increased from 1rem
     versionTitle.style.fontWeight = 'bold';
     versionTitle.style.color = '#32324d';
-    versionTitle.style.marginBottom = '8px';
-    
+    versionTitle.style.marginBottom = '12px'; // Increased from 8px
+
     const versionList = document.createElement('ul');
     versionList.style.listStyle = 'none';
     versionList.style.padding = 0;
     versionList.style.margin = 0;
-    
+
     const versionItems = [
       { label: 'Version', value: trail.version },
       { label: 'Change Type', value: trail.change || 'Unknown' },
@@ -466,90 +625,540 @@ const showTrailDetail = (trail) => {
       { label: 'Content Type', value: trail.contentType },
       { label: 'Entity ID', value: trail.entityId }
     ];
-    
+
     versionItems.forEach(item => {
       const listItem = document.createElement('li');
-      listItem.style.marginBottom = '8px';
+      listItem.style.marginBottom = '10px'; // Increased from 8px
       listItem.style.display = 'flex';
-      
+
       const label = document.createElement('span');
       label.textContent = `${item.label}: `;
       label.style.fontWeight = 'bold';
-      label.style.minWidth = '120px';
+      label.style.minWidth = '130px'; // Increased from 120px
       label.style.color = '#666687';
-      
+      label.style.fontSize = '16px'; // Increased font size
+
       const value = document.createElement('span');
       value.textContent = item.value;
       value.style.color = '#32324d';
-      
+      value.style.fontSize = '16px'; // Increased font size
+
       listItem.appendChild(label);
       listItem.appendChild(value);
       versionList.appendChild(listItem);
     });
-    
+
     versionInfo.appendChild(versionTitle);
     versionInfo.appendChild(versionList);
     contentDetails.appendChild(versionInfo);
-    
-    // Content data
+
+    // Create steps container for restore process
+    const stepsContainer = document.createElement('div');
+    stepsContainer.style.marginTop = '12px';
+    stepsContainer.style.marginBottom = '24px';
+
+    // Step 1: Content data view
+    const step1 = document.createElement('div');
+    step1.style.display = 'block';
+    step1.id = 'paper-trail-step-1';
+
+    // Step 2: Field selection
+    const step2 = document.createElement('div');
+    step2.style.display = 'none';
+    step2.id = 'paper-trail-step-2';
+
+    // Step 3: Review and confirm
+    const step3 = document.createElement('div');
+    step3.style.display = 'none';
+    step3.id = 'paper-trail-step-3';
+
+    // Content data (Step 1)
     if (trail.content) {
       const contentSection = document.createElement('div');
       contentSection.style.marginTop = '24px';
-      
+
       const contentTitle = document.createElement('h3');
       contentTitle.textContent = 'Content Data';
-      contentTitle.style.fontSize = '1rem';
+      contentTitle.style.fontSize = '18px'; // Increased from 1rem
       contentTitle.style.fontWeight = 'bold';
       contentTitle.style.color = '#32324d';
-      contentTitle.style.marginBottom = '8px';
-      
+      contentTitle.style.marginBottom = '12px'; // Increased from 8px
+
       const contentData = document.createElement('pre');
       contentData.textContent = JSON.stringify(trail.content, null, 2);
       contentData.style.backgroundColor = '#f6f6f9';
       contentData.style.padding = '16px';
       contentData.style.borderRadius = '4px';
       contentData.style.overflow = 'auto';
-      contentData.style.fontSize = '0.875rem';
+      contentData.style.fontSize = '16px'; // Increased from 0.875rem
       contentData.style.whiteSpace = 'pre-wrap';
-      
+      contentData.style.lineHeight = '1.5';
+      contentData.style.fontFamily = 'monospace';
+
       contentSection.appendChild(contentTitle);
       contentSection.appendChild(contentData);
-      contentDetails.appendChild(contentSection);
+      step1.appendChild(contentSection);
+    }
+
+    stepsContainer.appendChild(step1);
+    stepsContainer.appendChild(step2);
+    stepsContainer.appendChild(step3);
+    contentDetails.appendChild(stepsContainer);
+
+    // Fetch current content to compare with trail version
+    let currentContent = null;
+    try {
+      const contentInfo = extractContentTypeFromUrl();
+      if (contentInfo && contentInfo.contentType && contentInfo.id) {
+        // Try to fetch current data from API
+        const endpoint = `/content-manager/collection-types/${contentInfo.contentType}/${contentInfo.id}`;
+        const legacyEndpoint = `/api/content-manager/collection-types/${contentInfo.contentType}/${contentInfo.id}`;
+        
+        try {
+          const response = await fetch(endpoint);
+          if (response.ok) {
+            currentContent = await response.json();
+            console.log('[Paper Trail] Fetched current content:', currentContent);
+          }
+        } catch (endpointError) {
+          console.log('[Paper Trail] Error fetching from main endpoint:', endpointError);
+          
+          // Try legacy endpoint
+          try {
+            const legacyResponse = await fetch(legacyEndpoint);
+            if (legacyResponse.ok) {
+              currentContent = await legacyResponse.json();
+              console.log('[Paper Trail] Fetched current content from legacy endpoint:', currentContent);
+            }
+          } catch (legacyError) {
+            console.log('[Paper Trail] Error fetching from legacy endpoint:', legacyError);
+          }
+        }
+      }
+    } catch (fetchError) {
+      console.log('[Paper Trail] Error fetching current content:', fetchError);
+    }
+
+    // If we can't get current content, try to extract it from the form
+    if (!currentContent) {
+      try {
+        // Try to extract from form fields
+        const formData = {};
+        const formElements = document.querySelectorAll('form input, form textarea, form select');
+        formElements.forEach(element => {
+          if (element.name) {
+            if (element.type === 'checkbox') {
+              formData[element.name] = element.checked;
+            } else {
+              formData[element.name] = element.value;
+            }
+          }
+        });
+        
+        if (Object.keys(formData).length > 0) {
+          currentContent = formData;
+          console.log('[Paper Trail] Extracted content from form:', currentContent);
+        }
+      } catch (formError) {
+        console.log('[Paper Trail] Error extracting form data:', formError);
+      }
     }
     
-    detailModalBody.appendChild(contentDetails);
+    // Function to display the field selection view (Step 2)
+    const showFieldSelection = () => {
+      // Hide step 1, show step 2
+      document.getElementById('paper-trail-step-1').style.display = 'none';
+      document.getElementById('paper-trail-step-2').style.display = 'block';
+      document.getElementById('paper-trail-step-3').style.display = 'none';
+      
+      // Show back button
+      backButton.style.display = 'block';
+      
+      // Change button text and action
+      restoreButton.textContent = 'Review Selected Fields';
+      restoreButton.onclick = showReviewFields;
+      
+      // Clear previous content
+      step2.innerHTML = '';
+      
+      // Create field selection UI
+      const fieldSelectionTitle = document.createElement('h3');
+      fieldSelectionTitle.textContent = 'Select Fields to Restore';
+      fieldSelectionTitle.style.fontSize = '18px';
+      fieldSelectionTitle.style.fontWeight = 'bold';
+      fieldSelectionTitle.style.color = '#32324d';
+      fieldSelectionTitle.style.marginBottom = '16px';
+      
+      const fieldDescription = document.createElement('p');
+      fieldDescription.textContent = 'Select the fields you want to restore from this version:';
+      fieldDescription.style.fontSize = '16px';
+      fieldDescription.style.color = '#666687';
+      fieldDescription.style.marginBottom = '16px';
+      
+      // Create field selection form
+      const fieldSelectionForm = document.createElement('div');
+      fieldSelectionForm.style.marginBottom = '16px';
+      
+      // Toggle all checkbox
+      const toggleAllContainer = document.createElement('div');
+      toggleAllContainer.className = 'paper-trail-field-row';
+      toggleAllContainer.style.marginBottom = '16px';
+      toggleAllContainer.style.padding = '8px';
+      toggleAllContainer.style.backgroundColor = '#f6f6f9';
+      toggleAllContainer.style.borderRadius = '4px';
+      
+      const toggleAllCheckbox = document.createElement('input');
+      toggleAllCheckbox.type = 'checkbox';
+      toggleAllCheckbox.id = 'paper-trail-toggle-all';
+      toggleAllCheckbox.className = 'paper-trail-field-checkbox';
+      toggleAllCheckbox.checked = true;
+      
+      const toggleAllLabel = document.createElement('label');
+      toggleAllLabel.htmlFor = 'paper-trail-toggle-all';
+      toggleAllLabel.textContent = 'Select/Deselect All Fields';
+      toggleAllLabel.className = 'paper-trail-field-label';
+      toggleAllLabel.style.fontWeight = 'bold';
+      toggleAllLabel.style.fontSize = '16px';
+      
+      toggleAllContainer.appendChild(toggleAllCheckbox);
+      toggleAllContainer.appendChild(toggleAllLabel);
+      fieldSelectionForm.appendChild(toggleAllContainer);
+      
+      // Add individual field checkboxes
+      const fieldList = document.createElement('div');
+      fieldList.style.maxHeight = '300px';
+      fieldList.style.overflowY = 'auto';
+      fieldList.style.padding = '8px';
+      fieldList.style.border = '1px solid #dcdce4';
+      fieldList.style.borderRadius = '4px';
+      
+      // Create individual field checkboxes
+      const trailContent = trail.content || {};
+      const allFields = Object.keys(trailContent).sort();
+      
+      allFields.forEach(field => {
+        // Skip internal fields like id, created_at, updated_at
+        if (['id', 'createdAt', 'updatedAt', 'created_at', 'updated_at'].includes(field)) {
+          return;
+        }
+        
+        const fieldRow = document.createElement('div');
+        fieldRow.className = 'paper-trail-field-row';
+        
+        const fieldCheckbox = document.createElement('input');
+        fieldCheckbox.type = 'checkbox';
+        fieldCheckbox.id = `paper-trail-field-${field}`;
+        fieldCheckbox.className = 'paper-trail-field-checkbox';
+        fieldCheckbox.dataset.fieldName = field;
+        fieldCheckbox.checked = true;
+        
+        const fieldLabel = document.createElement('label');
+        fieldLabel.htmlFor = `paper-trail-field-${field}`;
+        fieldLabel.textContent = field;
+        fieldLabel.className = 'paper-trail-field-label';
+        fieldLabel.style.fontSize = '16px';
+        
+        fieldRow.appendChild(fieldCheckbox);
+        fieldRow.appendChild(fieldLabel);
+        fieldList.appendChild(fieldRow);
+      });
+      
+      // Handle toggle all checkbox
+      toggleAllCheckbox.addEventListener('change', () => {
+        const isChecked = toggleAllCheckbox.checked;
+        const fieldCheckboxes = fieldList.querySelectorAll('input[type="checkbox"]');
+        fieldCheckboxes.forEach(checkbox => {
+          checkbox.checked = isChecked;
+        });
+      });
+      
+      fieldSelectionForm.appendChild(fieldList);
+      
+      // Add all elements to step 2
+      step2.appendChild(fieldSelectionTitle);
+      step2.appendChild(fieldDescription);
+      step2.appendChild(fieldSelectionForm);
+    };
     
-    // Create modal footer
+    // Function to display the review screen (Step 3)
+    const showReviewFields = () => {
+      // Hide previous steps, show step 3
+      document.getElementById('paper-trail-step-1').style.display = 'none';
+      document.getElementById('paper-trail-step-2').style.display = 'none';
+      document.getElementById('paper-trail-step-3').style.display = 'block';
+      
+      // Change button text and action
+      restoreButton.textContent = 'Restore Selected Fields';
+      restoreButton.className = 'paper-trail-btn-danger';
+      restoreButton.onclick = restoreSelectedFields;
+      
+      // Clear previous content
+      step3.innerHTML = '';
+      
+      // Create review UI
+      const reviewTitle = document.createElement('h3');
+      reviewTitle.textContent = 'Review Selected Fields';
+      reviewTitle.style.fontSize = '18px';
+      reviewTitle.style.fontWeight = 'bold';
+      reviewTitle.style.color = '#32324d';
+      reviewTitle.style.marginBottom = '16px';
+      
+      const reviewDescription = document.createElement('p');
+      reviewDescription.textContent = 'Review the fields that will be restored from this version:';
+      reviewDescription.style.fontSize = '16px';
+      reviewDescription.style.color = '#666687';
+      reviewDescription.style.marginBottom = '16px';
+      
+      // Get selected fields
+      const selectedFields = [];
+      const fieldCheckboxes = document.querySelectorAll('#paper-trail-step-2 input[type="checkbox"]:not(#paper-trail-toggle-all)');
+      fieldCheckboxes.forEach(checkbox => {
+        if (checkbox.checked) {
+          selectedFields.push(checkbox.dataset.fieldName);
+        }
+      });
+      
+      // Create warning if no fields selected
+      if (selectedFields.length === 0) {
+        const warningMessage = document.createElement('div');
+        warningMessage.className = 'paper-trail-restore-warning';
+        warningMessage.textContent = 'No fields selected. Please go back and select at least one field to restore.';
+        warningMessage.style.fontSize = '16px';
+        step3.appendChild(warningMessage);
+        
+        // Disable restore button
+        restoreButton.disabled = true;
+        restoreButton.style.opacity = '0.5';
+        restoreButton.style.cursor = 'not-allowed';
+      } else {
+        // Create review list
+        const reviewList = document.createElement('div');
+        reviewList.className = 'paper-trail-review-list';
+        
+        // Compare old values with current values
+        selectedFields.forEach(field => {
+          const fieldRow = document.createElement('div');
+          fieldRow.style.marginBottom = '12px';
+          fieldRow.style.padding = '8px';
+          fieldRow.style.borderBottom = '1px solid #eaeaef';
+          
+          const fieldName = document.createElement('h4');
+          fieldName.textContent = field;
+          fieldName.style.margin = '0 0 8px 0';
+          fieldName.style.fontSize = '16px';
+          fieldName.style.fontWeight = 'bold';
+          
+          const oldValue = document.createElement('div');
+          oldValue.innerHTML = `<strong>Old Value:</strong> ${formatValue(trail.content[field])}`;
+          oldValue.style.fontSize = '16px';
+          oldValue.style.marginBottom = '4px';
+          
+          const newValue = document.createElement('div');
+          newValue.innerHTML = `<strong>Current Value:</strong> ${formatValue(currentContent?.[field])}`;
+          newValue.style.fontSize = '16px';
+          
+          fieldRow.appendChild(fieldName);
+          fieldRow.appendChild(oldValue);
+          fieldRow.appendChild(newValue);
+          reviewList.appendChild(fieldRow);
+        });
+        
+        // Create warning message
+        const warningMessage = document.createElement('div');
+        warningMessage.className = 'paper-trail-restore-warning';
+        warningMessage.textContent = 'Warning: This action will overwrite the current values of the selected fields!';
+        warningMessage.style.fontSize = '16px';
+        
+        step3.appendChild(reviewTitle);
+        step3.appendChild(reviewDescription);
+        step3.appendChild(reviewList);
+        step3.appendChild(warningMessage);
+      }
+    };
+    
+    // Function to format values for display
+    const formatValue = (value) => {
+      if (value === null || value === undefined) {
+        return '<em>Empty</em>';
+      }
+      
+      if (typeof value === 'object') {
+        try {
+          return JSON.stringify(value, null, 2);
+        } catch (e) {
+          return String(value);
+        }
+      }
+      
+      return String(value);
+    };
+    
+    // Function to actually restore the selected fields
+    const restoreSelectedFields = async () => {
+      try {
+        // Get content type info from URL
+        const contentInfo = extractContentTypeFromUrl();
+        if (!contentInfo || !contentInfo.contentType || !contentInfo.id) {
+          throw new Error('Could not extract content type information from URL');
+        }
+        
+        // Get selected fields
+        const selectedFields = [];
+        const fieldCheckboxes = document.querySelectorAll('#paper-trail-step-2 input[type="checkbox"]:not(#paper-trail-toggle-all)');
+        fieldCheckboxes.forEach(checkbox => {
+          if (checkbox.checked) {
+            selectedFields.push(checkbox.dataset.fieldName);
+          }
+        });
+        
+        if (selectedFields.length === 0) {
+          alert('No fields selected. Please select at least one field to restore.');
+          return;
+        }
+        
+        // Show loading state
+        restoreButton.disabled = true;
+        restoreButton.textContent = 'Restoring...';
+        
+        // Build the payload with only selected fields
+        const payload = {};
+        selectedFields.forEach(field => {
+          if (trail.content && trail.content[field] !== undefined) {
+            payload[field] = trail.content[field];
+          }
+        });
+        
+        // Add required ID field
+        if (trail.content && trail.content.id) {
+          payload.id = trail.content.id;
+        }
+        
+        console.log('[Paper Trail] Restoring fields with payload:', payload);
+        
+        // Send the update request
+        const endpoint = `/content-manager/collection-types/${contentInfo.contentType}/${contentInfo.id}`;
+        const legacyEndpoint = `/api/content-manager/collection-types/${contentInfo.contentType}/${contentInfo.id}`;
+        
+        let response;
+        
+        try {
+          // Try the main endpoint first
+          response = await fetch(endpoint, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          });
+        } catch (error) {
+          console.log('[Paper Trail] Error updating with main endpoint:', error);
+          
+          // Try the legacy endpoint
+          response = await fetch(legacyEndpoint, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+          });
+        }
+        
+        if (!response.ok) {
+          throw new Error(`Failed to update content: ${response.status} ${response.statusText}`);
+        }
+        
+        // Show success message
+        alert('Successfully restored the selected fields from version ' + trail.version);
+        
+        // Close the modal
+        document.body.removeChild(detailModalOverlay);
+        
+        // Refresh the page to show updated content
+        window.location.reload();
+      } catch (error) {
+        console.error('[Paper Trail] Error restoring fields:', error);
+        alert('Error restoring fields: ' + error.message);
+        
+        // Reset button state
+        restoreButton.disabled = false;
+        restoreButton.textContent = 'Restore Selected Fields';
+      }
+    };
+
+    detailModalBody.appendChild(contentDetails);
+
+    // Create modal footer with restore button
     const detailModalFooter = document.createElement('div');
     detailModalFooter.style.padding = '16px 24px';
     detailModalFooter.style.borderTop = '1px solid #eaeaef';
     detailModalFooter.style.display = 'flex';
-    detailModalFooter.style.justifyContent = 'flex-end';
-    
+    detailModalFooter.style.justifyContent = 'space-between';
+
+    // Create back button (hidden initially, shown in steps 2-3)
+    const backButton = document.createElement('button');
+    backButton.textContent = 'Back';
+    backButton.className = 'paper-trail-btn-secondary';
+    backButton.style.padding = '8px 16px';
+    backButton.style.fontSize = '16px'; // Increased font size
+    backButton.style.display = 'none';
+    backButton.onclick = () => {
+      // Determine which step to go back to
+      if (document.getElementById('paper-trail-step-3').style.display === 'block') {
+        // Go back to step 2
+        showFieldSelection();
+        // Keep back button visible
+        backButton.style.display = 'block';
+      } else if (document.getElementById('paper-trail-step-2').style.display === 'block') {
+        // Go back to step 1
+        document.getElementById('paper-trail-step-1').style.display = 'block';
+        document.getElementById('paper-trail-step-2').style.display = 'none';
+        document.getElementById('paper-trail-step-3').style.display = 'none';
+        // Hide back button
+        backButton.style.display = 'none';
+        // Reset restore button
+        restoreButton.textContent = 'Restore This Version';
+        restoreButton.className = 'paper-trail-btn-primary';
+        restoreButton.onclick = showFieldSelection;
+      }
+    };
+
+    // Create restore button
+    const restoreButton = document.createElement('button');
+    restoreButton.textContent = 'Restore This Version';
+    restoreButton.className = 'paper-trail-btn-primary';
+    restoreButton.style.padding = '8px 16px';
+    restoreButton.style.fontSize = '16px'; // Increased font size
+    restoreButton.onclick = showFieldSelection; // Start with field selection
+
+    // Create close button
     const detailCloseFooterButton = document.createElement('button');
     detailCloseFooterButton.textContent = 'Close';
-    detailCloseFooterButton.style.backgroundColor = 'white';
-    detailCloseFooterButton.style.color = '#4945ff';
-    detailCloseFooterButton.style.border = '1px solid #dcdce4';
-    detailCloseFooterButton.style.borderRadius = '4px';
+    detailCloseFooterButton.className = 'paper-trail-btn-secondary';
     detailCloseFooterButton.style.padding = '8px 16px';
-    detailCloseFooterButton.style.fontSize = '0.875rem';
-    detailCloseFooterButton.style.cursor = 'pointer';
+    detailCloseFooterButton.style.fontSize = '16px'; // Increased font size
     detailCloseFooterButton.onclick = () => {
       document.body.removeChild(detailModalOverlay);
     };
+
+    // Add buttons to footer with button group
+    const buttonGroup = document.createElement('div');
+    buttonGroup.style.display = 'flex';
+    buttonGroup.style.gap = '8px';
     
-    detailModalFooter.appendChild(detailCloseFooterButton);
+    buttonGroup.appendChild(restoreButton);
+    buttonGroup.appendChild(detailCloseFooterButton);
     
+    detailModalFooter.appendChild(backButton);
+    detailModalFooter.appendChild(buttonGroup);
+
     // Assemble modal
     detailModalContent.appendChild(detailModalHeader);
     detailModalContent.appendChild(detailModalBody);
     detailModalContent.appendChild(detailModalFooter);
     detailModalOverlay.appendChild(detailModalContent);
-    
+
     // Add modal to the DOM
     document.body.appendChild(detailModalOverlay);
-    
   } catch (error) {
     console.error('[Paper Trail] Error showing trail detail:', error);
     alert('Error showing version details. Please try again.');
@@ -573,7 +1182,7 @@ const fetchTrailData = async (contentType, entityId) => {
     const possibleEndpoints = [
       // Our custom API endpoints (correct format for Strapi V5)
       `/paper-trail/trails?contentType=${encodeURIComponent(contentType)}&entityId=${entityId}&sort=version:DESC`,
-      
+
       // Fallback to other potential paths
       `/api/paper-trail/trails?contentType=${encodeURIComponent(contentType)}&entityId=${entityId}&sort=version:DESC`,
       `/content-manager/collection-types/plugin::paper-trail.trail?${params}`,
@@ -691,7 +1300,9 @@ const isPaperTrailEnabled = async contentType => {
   try {
     // First check using our specific endpoint with correct Strapi V5 path format
     try {
-      const response = await fetch(`/paper-trail/is-enabled?contentType=${encodeURIComponent(contentType)}`);
+      const response = await fetch(
+        `/paper-trail/is-enabled?contentType=${encodeURIComponent(contentType)}`
+      );
       if (response.ok) {
         const data = await response.json();
         return data.enabled === true;
@@ -700,13 +1311,18 @@ const isPaperTrailEnabled = async contentType => {
       console.log('[Paper Trail] Error using is-enabled endpoint:', apiError);
       // Fallback to legacy path format
       try {
-        const legacyResponse = await fetch(`/api/paper-trail/is-enabled?contentType=${encodeURIComponent(contentType)}`);
+        const legacyResponse = await fetch(
+          `/api/paper-trail/is-enabled?contentType=${encodeURIComponent(contentType)}`
+        );
         if (legacyResponse.ok) {
           const data = await legacyResponse.json();
           return data.enabled === true;
         }
       } catch (legacyError) {
-        console.log('[Paper Trail] Error using legacy is-enabled endpoint:', legacyError);
+        console.log(
+          '[Paper Trail] Error using legacy is-enabled endpoint:',
+          legacyError
+        );
       }
     }
 
@@ -717,20 +1333,26 @@ const isPaperTrailEnabled = async contentType => {
       'api::category.category'
       // Add more known enabled types here
     ];
-    
+
     if (knownEnabledTypes.includes(contentType)) {
-      console.log(`[Paper Trail] Content type ${contentType} is in the known enabled list`);
+      console.log(
+        `[Paper Trail] Content type ${contentType} is in the known enabled list`
+      );
       return true;
     }
-    
+
     // Try to fetch all enabled content types if we haven't already
     if (!window.paperTrailEnabledContentTypes) {
       try {
         const response = await fetch('/paper-trail/enabled-content-types');
         if (!response.ok) {
           // Fallback to legacy path
-          console.log('[Paper Trail] Trying legacy path for enabled-content-types');
-          const legacyResponse = await fetch('/api/paper-trail/enabled-content-types');
+          console.log(
+            '[Paper Trail] Trying legacy path for enabled-content-types'
+          );
+          const legacyResponse = await fetch(
+            '/api/paper-trail/enabled-content-types'
+          );
           if (legacyResponse.ok) {
             return legacyResponse;
           }
@@ -739,21 +1361,32 @@ const isPaperTrailEnabled = async contentType => {
           const data = await response.json();
           if (data.contentTypes && Array.isArray(data.contentTypes)) {
             window.paperTrailEnabledContentTypes = data.contentTypes;
-            console.log('[Paper Trail] Loaded enabled content types:', window.paperTrailEnabledContentTypes);
+            console.log(
+              '[Paper Trail] Loaded enabled content types:',
+              window.paperTrailEnabledContentTypes
+            );
           }
         }
       } catch (listError) {
-        console.log('[Paper Trail] Error fetching enabled content types:', listError);
+        console.log(
+          '[Paper Trail] Error fetching enabled content types:',
+          listError
+        );
       }
     }
-    
+
     // Check if we have the list of enabled content types
-    if (window.paperTrailEnabledContentTypes && Array.isArray(window.paperTrailEnabledContentTypes)) {
+    if (
+      window.paperTrailEnabledContentTypes &&
+      Array.isArray(window.paperTrailEnabledContentTypes)
+    ) {
       return window.paperTrailEnabledContentTypes.includes(contentType);
     }
-    
+
     // As a final resort, we'll be cautious and assume it's not enabled
-    console.log(`[Paper Trail] Could not verify if ${contentType} has Paper Trail enabled, assuming it's not`);
+    console.log(
+      `[Paper Trail] Could not verify if ${contentType} has Paper Trail enabled, assuming it's not`
+    );
     return false;
   } catch (error) {
     console.error('[Paper Trail] Error checking if enabled:', error);
@@ -766,9 +1399,13 @@ export const injectVanillaPaperTrail = async () => {
   console.log('[Paper Trail] Starting vanilla injection');
 
   // Check if the React component is already present - if so, don't inject our own
-  const reactComponent = document.querySelector('[aria-labelledby="paper-trail-records"]');
+  const reactComponent = document.querySelector(
+    '[aria-labelledby="paper-trail-records"]'
+  );
   if (reactComponent) {
-    console.log('[Paper Trail] React component found, skipping vanilla injection');
+    console.log(
+      '[Paper Trail] React component found, skipping vanilla injection'
+    );
     return false;
   }
 
@@ -993,7 +1630,7 @@ export const injectVanillaPaperTrail = async () => {
 
             // Add button to view all versions
             panelContent += `
-            <button id="paper-trail-view-button" style="background-color: #4945ff; color: white; border: none; border-radius: 4px; padding: 8px 16px; font-size: 14px; cursor: pointer; font-weight: 600; transition: background-color 0.2s; margin-top: 8px;">
+            <button id="paper-trail-view-button" style="background-color: #4945ff; color: white; border: none; border-radius: 4px; padding: 10px 16px; font-size: 16px; cursor: pointer; font-weight: 600; transition: background-color 0.2s; margin-top: 12px;">
               View All Versions
             </button>
           `;
@@ -1021,42 +1658,20 @@ export const injectVanillaPaperTrail = async () => {
                   // Get content type info from URL
                   const urlInfo = extractContentTypeFromUrl();
                   if (!urlInfo || !urlInfo.contentType || !urlInfo.id) {
-                    console.error('[Paper Trail] Could not extract content type information from URL');
+                    console.error(
+                      '[Paper Trail] Could not extract content type information from URL'
+                    );
                     return;
                   }
 
-                  // First try to call the React component's modal open function if it's available
-                  if (window.strapi?.paperTrail?.openTrailsModal) {
-                    console.log('[Paper Trail] Opening modal using React component');
-                    window.strapi.paperTrail.openTrailsModal(urlInfo.contentType, urlInfo.id);
-                    return;
-                  }
-
-                  // Try direct component injection if available
-                  if (window.paperTrailForceInject) {
-                    console.log('[Paper Trail] Forcing Paper Trail component injection');
-                    await window.paperTrailForceInject();
-                    
-                    // Now try to find and click the proper button in the React component
-                    setTimeout(() => {
-                      const reactButton = document.querySelector('[aria-labelledby="paper-trail-records"] button');
-                      if (reactButton) {
-                        console.log('[Paper Trail] Found React component button, clicking it');
-                        reactButton.click();
-                        return;
-                      } else {
-                        console.log('[Paper Trail] Could not find React component button, creating fallback modal');
-                        createVanillaModal(urlInfo.contentType, urlInfo.id);
-                      }
-                    }, 500);
-                    return;
-                  }
-
-                  // If the React component isn't available, create our own modal
-                  console.log('[Paper Trail] Creating fallback modal');
+                  // Use our vanilla modal implementation directly for consistent experience
+                  console.log('[Paper Trail] Creating enhanced vanilla modal');
                   createVanillaModal(urlInfo.contentType, urlInfo.id);
                 } catch (error) {
-                  console.error('[Paper Trail] Error handling View All Versions click:', error);
+                  console.error(
+                    '[Paper Trail] Error handling View All Versions click:',
+                    error
+                  );
                 }
               });
             }
@@ -1297,41 +1912,20 @@ export const attachVanillaInjectionToWindow = () => {
                       // Get content type info from URL
                       const urlInfo = extractContentTypeFromUrl();
                       if (!urlInfo || !urlInfo.contentType || !urlInfo.id) {
-                        console.error('[Paper Trail] Could not extract content type information from URL');
+                        console.error(
+                          '[Paper Trail] Could not extract content type information from URL'
+                        );
                         return;
                       }
 
-                      // First try to call the React component's modal open function if it's available
-                      if (window.strapi?.paperTrail?.openTrailsModal) {
-                        console.log('[Paper Trail] Opening modal using React component');
-                        window.strapi.paperTrail.openTrailsModal(urlInfo.contentType, urlInfo.id);
-                        return;
-                      }
-
-                      // Try direct component injection if available
-                      if (window.paperTrailForceInject) {
-                        console.log('[Paper Trail] Forcing Paper Trail component injection');
-                        await window.paperTrailForceInject();
-                        
-                        // Now try to find and click the proper button in the React component
-                        setTimeout(() => {
-                          const reactButton = document.querySelector('[aria-labelledby="paper-trail-records"] button');
-                          if (reactButton) {
-                            console.log('[Paper Trail] Found React component button, clicking it');
-                            reactButton.click();
-                            return;
-                          } else {
-                            console.log('[Paper Trail] Could not find React component button');
-                            alert('Paper Trail versions are available in the Strapi admin panel. Please reload the page if the button does not work.');
-                          }
-                        }, 500);
-                        return;
-                      }
-
-                      // If the React component isn't available, show a message
-                      alert('Paper Trail versions are available in the Strapi admin panel. Please reload the page if the button does not work.');
+                      // Use our vanilla modal implementation directly for consistent experience
+                      console.log('[Paper Trail] Creating enhanced vanilla modal');
+                      createVanillaModal(urlInfo.contentType, urlInfo.id);
                     } catch (error) {
-                      console.error('[Paper Trail] Error handling View All Versions click:', error);
+                      console.error(
+                        '[Paper Trail] Error handling View All Versions click:',
+                        error
+                      );
                     }
                   });
                 }
